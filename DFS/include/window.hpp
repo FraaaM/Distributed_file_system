@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QTcpSocket>
 #include <QStackedWidget>
 #include <QWidget>
 
@@ -12,6 +13,7 @@ namespace SHIZ{
 		Q_OBJECT
 
 		private:
+			QTcpSocket *tcpSocket;
 			QStackedWidget *stackedWidget;
 
 			MainWidget *chatWidget;

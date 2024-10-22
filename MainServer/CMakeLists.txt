@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(DFS VERSION 0.1 LANGUAGES CXX)
+project(MainServer VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -14,46 +14,36 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Sql)
 
 include_directories(include)
 
-set(RESOURCE_FILES
-    assets/assets.qrc
-)
-
 set(PROJECT_SOURCES
         main.cpp
-        include/loginwidget.hpp src/loginwidget.cpp
-        include/mainwidget.hpp src/mainwidget.cpp
-        include/registrationwidget.hpp src/registrationwidget.cpp
-        include/window.hpp src/window.cpp
+        include/mainserver.hpp src/mainserver.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    qt_add_executable(DFS
+    qt_add_executable(MainServer
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        ${RESOURCE_FILES}
     )
 # Define target properties for Android with Qt 6 as:
-#    set_property(TARGET DFS APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
+#    set_property(TARGET MainServer APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
 #                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
 # For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
 else()
     if(ANDROID)
-        add_library(DFS SHARED
+        add_library(MainServer SHARED
             ${PROJECT_SOURCES}
-            ${RESOURCE_FILES}
         )
 # Define properties for Android with Qt 5 after find_package() calls as:
 #    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
     else()
-        add_executable(DFS
+        add_executable(MainServer
             ${PROJECT_SOURCES}
-			${RESOURCE_FILES}
         )
     endif()
 endif()
 
 target_link_libraries(
-    DFS PRIVATE
+    MainServer PRIVATE
         Qt${QT_VERSION_MAJOR}::Widgets
         Qt${QT_VERSION_MAJOR}::Network
         Qt${QT_VERSION_MAJOR}::Sql
@@ -63,9 +53,9 @@ target_link_libraries(
 # If you are developing for iOS or macOS you should consider setting an
 # explicit, fixed bundle identifier manually though.
 if(${QT_VERSION} VERSION_LESS 6.1.0)
-  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.DFS)
+  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.MainServer)
 endif()
-set_target_properties(DFS PROPERTIES
+set_target_properties(MainServer PROPERTIES
     ${BUNDLE_ID_OPTION}
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
@@ -74,12 +64,12 @@ set_target_properties(DFS PROPERTIES
 )
 
 include(GNUInstallDirs)
-install(TARGETS DFS
+install(TARGETS MainServer
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)
-    qt_finalize_executable(DFS)
+    qt_finalize_executable(MainServer)
 endif()

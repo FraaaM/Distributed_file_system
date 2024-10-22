@@ -4,7 +4,9 @@
 #include "registrationwidget.hpp"
 
 namespace SHIZ{
-	RegistrationWidget::RegistrationWidget(QWidget* parent): QWidget(parent){
+	RegistrationWidget::RegistrationWidget(QTcpSocket *socket, QWidget* parent):
+		tcpSocket(socket), QWidget(parent)
+	{
 		QVBoxLayout *layout = new QVBoxLayout(this);
 
 		QLabel *loginLabel = new QLabel("Login:", this);
@@ -44,9 +46,27 @@ namespace SHIZ{
 
 	void RegistrationWidget::onEnterButtonClicked(){
 		if (!(loginInput->text().isEmpty() || passwordInput->text().isEmpty())
-			&& passwordInput->text() == confirmPasswordInput->text())
-		{
-			emit registrationSuccessful();
+			&& passwordInput->text() == confirmPasswordInput->text()) {
+
+			tcpSocket->connectToHost("127.0.0.1", 1234);
+
+			if (tcpSocket->waitForConnected(3000)) {
+				QString registrationData = "REGISTER:" + loginInput->text() + ":" + passwordInput->text();
+				tcpSocket->write(registrationData.toUtf8());
+				tcpSocket->flush();
+
+				if (tcpSocket->waitForReadyRead(3000)) {
+					QString response = tcpSocket->readAll();
+					if (response == "SUCCESS") {
+						emit registrationSuccessful();
+					} else {
+						qDebug() << "Registration failed";
+					}
+				}
+			}
+			else {
+				qDebug() << "Unable to connect to the server!";
+			}
 		}
 	}
 

@@ -1,14 +1,17 @@
 #pragma once
 
 #include <QLineEdit>
-#include <QWidget>
 #include <QPushButton>
+#include <QTcpSocket>
+#include <QWidget>
 
 namespace SHIZ{
 	class RegistrationWidget : public QWidget{
 		Q_OBJECT
 
 		private:
+			QTcpSocket *tcpSocket;
+
 			QLineEdit *loginInput;
 			QLineEdit *passwordInput;
 			QLineEdit *confirmPasswordInput;
@@ -17,7 +20,7 @@ namespace SHIZ{
 			QPushButton *loginButton;
 
 		public:
-			RegistrationWidget(QWidget* parent = nullptr);
+			RegistrationWidget(QTcpSocket *socket, QWidget* parent = nullptr);
 
 		signals:
 			void registrationSuccessful();

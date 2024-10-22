@@ -4,10 +4,12 @@
 
 namespace SHIZ{
 	Window::Window(QWidget* parent): QWidget(parent){
+		tcpSocket = new QTcpSocket(this);
+
 		stackedWidget = new QStackedWidget(this);
 
-		loginWidget = new LoginWidget(this);
-		registrationWidget = new RegistrationWidget(this);
+		loginWidget = new LoginWidget(tcpSocket, this);
+		registrationWidget = new RegistrationWidget(tcpSocket, this);
 		chatWidget = new MainWidget(this);
 
 		stackedWidget->addWidget(loginWidget);

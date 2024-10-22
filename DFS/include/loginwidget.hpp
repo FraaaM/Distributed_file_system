@@ -2,6 +2,7 @@
 
 #include <QLineEdit>
 #include <QPushButton>
+#include <QTcpSocket>
 #include <QWidget>
 
 namespace SHIZ{
@@ -9,6 +10,8 @@ namespace SHIZ{
 		Q_OBJECT
 
 		private:
+			QTcpSocket *tcpSocket;
+
 			QLineEdit *loginInput;
 			QLineEdit *passwordInput;
 
@@ -16,7 +19,7 @@ namespace SHIZ{
 			QPushButton *registrationButton;
 
 		public:
-			LoginWidget(QWidget* parent = nullptr);
+			LoginWidget(QTcpSocket *socket, QWidget* parent = nullptr);
 
 		signals:
 			void loginSuccessful();
