@@ -1,11 +1,10 @@
 #pragma once
 
-#include <QTcpSocket>
 #include <QStackedWidget>
-#include <QWidget>
 
-#include "mainwidget.hpp"
 #include "loginwidget.hpp"
+#include "mainwidget.hpp"
+#include "networkmanager.hpp"
 #include "registrationwidget.hpp"
 
 namespace SHIZ{
@@ -13,19 +12,22 @@ namespace SHIZ{
 		Q_OBJECT
 
 		private:
-			QTcpSocket *tcpSocket;
+			NetworkManager* networkManager;
+
 			QStackedWidget *stackedWidget;
 
-			MainWidget *chatWidget;
 			LoginWidget *loginWidget;
+			MainWidget *mainWidget;
 			RegistrationWidget *registrationWidget;
 
 		public:
-			Window(QWidget* parent = nullptr);
+			Window(NetworkManager* networkManager, QWidget* parent = nullptr);
 
 		private slots:
-			void onSwitchToChatWindow();
+			void onLoginSuccessful(const QString& login);
+			void onRegistrationSuccessful(const QString& login);
 			void onSwitchToLoginWindow();
+			void onSwitchToMainWindow();
 			void onSwitchToRegistrationWindow();
 	};
 }

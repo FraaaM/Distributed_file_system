@@ -2,15 +2,15 @@
 
 #include <QLineEdit>
 #include <QPushButton>
-#include <QTcpSocket>
-#include <QWidget>
+
+#include "networkmanager.hpp"
 
 namespace SHIZ{
 	class LoginWidget  : public QWidget{
 		Q_OBJECT
 
 		private:
-			QTcpSocket *tcpSocket;
+			NetworkManager* networkManager;
 
 			QLineEdit *loginInput;
 			QLineEdit *passwordInput;
@@ -19,10 +19,10 @@ namespace SHIZ{
 			QPushButton *registrationButton;
 
 		public:
-			LoginWidget(QTcpSocket *socket, QWidget* parent = nullptr);
+			LoginWidget(NetworkManager* manager, QWidget* parent = nullptr);
 
 		signals:
-			void loginSuccessful();
+			void loginSuccessful(const QString& login);
 			void showRegistrationWindow();
 
 		private slots:

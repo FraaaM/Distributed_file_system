@@ -1,21 +1,34 @@
 #pragma once
 
-#include <QLabel>
+#include <QListWidget>
 #include <QPushButton>
-#include <QWidget>
+
+#include "networkmanager.hpp"
 
 namespace SHIZ{
 	class MainWidget : public QWidget{
 		Q_OBJECT
 
 		private:
-			QLabel *chatArea;
-			QPushButton *sendMessageButton;
+			NetworkManager* networkManager;
+			QString currentLogin;
+
+			QListWidget* fileListWidget;
+			QPushButton* refreshButton;
+			QPushButton* uploadButton;
+			QPushButton* downloadButton;
 
 		public:
-			MainWidget(QWidget* parent = nullptr);
+			MainWidget(NetworkManager* manager, QWidget* parent = nullptr);
+
+			void setCurrentLogin(const QString& login);
 
 		signals:
 			void showLoginWindow();
+
+		private slots:
+			void onDownloadButtonClicked();
+			void onRefreshButtonClicked();
+			void onUploadButtonClicked();
 	};
 }

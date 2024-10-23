@@ -22,6 +22,7 @@ set(PROJECT_SOURCES
         main.cpp
         include/loginwidget.hpp src/loginwidget.cpp
         include/mainwidget.hpp src/mainwidget.cpp
+        include/networkmanager.hpp src/networkmanager.cpp
         include/registrationwidget.hpp src/registrationwidget.cpp
         include/window.hpp src/window.cpp
 )
