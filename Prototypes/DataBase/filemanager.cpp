@@ -2,6 +2,9 @@
 #include <QSqlError>
 #include <QDebug>
 #include <QMessageBox>
+#include <QString>
+#include <iostream>
+#include <QSqlQueryModel>
 
 #include "filemanager.hpp"
 
@@ -22,12 +25,27 @@ void FileManager::setupUI() {
 	downloadButton = new QPushButton("Download File", this);
 	connect(downloadButton, &QPushButton::clicked, this, &FileManager::downloadFile);
 
+     removeButton = new QPushButton("Remove File", this);
+     connect(removeButton, &QPushButton::clicked, this, &FileManager::removeFile);
+
 	tableView = new QTableView(this);
 	model = new QSqlQueryModel(this);
 	tableView->setModel(model);
 
+     findPanel = new QLineEdit(this);
+     findPanel->setPlaceholderText("Введите название файла");
+     // QSortFilterSqlQueryModel *model1 = new QSortFilterSqlQueryModel(model);
+     connect(findPanel, &QLineEdit::textChanged, this, &FileManager::findFiles);
+     // connect(findPanel, SIGNAL (textChanged(QString)), model1, SLOT (filter(QString)));
+
+
+
+
 	QVBoxLayout *layout = new QVBoxLayout(this);
+
+     layout->addWidget(findPanel);
 	layout->addWidget(addButton);
+     layout->addWidget(removeButton);
 	layout->addWidget(downloadButton);
 	layout->addWidget(tableView);
 
@@ -37,8 +55,8 @@ void FileManager::setupUI() {
 }
 
 void FileManager::setupDatabase() {
-	db = QSqlDatabase::addDatabase("QSQLITE");
-	db.setDatabaseName("files.db");
+    db = QSqlDatabase::addDatabase("QSQLITE");
+    db.setDatabaseName("files.db");
 
 	if (!db.open()) {
 		qDebug() << "Error: connection with database failed";
@@ -77,8 +95,8 @@ void FileManager::addFile() {
 
 	file.close();
 
-	QSqlQuery query;
-	query.prepare("INSERT INTO files (file_name, file_size, upload_date, file_data) "
+    QSqlQuery query;
+     query.prepare("INSERT INTO files (file_name, file_size, upload_date, file_data) "
 				  "VALUES (:file_name, :file_size, :upload_date, :file_data)");
 	query.bindValue(":file_name", fileName);
 	query.bindValue(":file_size", fileSize);
@@ -131,6 +149,57 @@ void FileManager::downloadFile() {
 
 		QMessageBox::information(this, "Success", "File downloaded successfully.");
 	}
+}
+
+void FileManager::removeFile(){
+    QModelIndex index = tableView->currentIndex();
+    if (!index.isValid()) {
+        QMessageBox::warning(this, "Selection Error", "Please select a file to remove.");
+        return;
+    }
+
+    int row = index.row();
+    int fileId = model->data(model->index(row, 0)).toInt();
+
+    QSqlQuery query;
+    query.prepare("DELETE FROM files WHERE id = :id");
+    query.bindValue(":id", fileId);
+
+    if (!query.exec()) {
+        qDebug() << "Error remove of file:" << query.lastError().text();
+        return;
+    }else{
+        updateTable();
+    }
+
+    QMessageBox::information(this, "Success", "File removed successfully.");
+}
+void FileManager::findFiles(){
+    QSqlQuery query;
+
+    QString fileName = findPanel->text();
+    if(fileName != ""){
+        query.prepare("SELECT id, file_name, file_size, upload_date FROM files WHERE file_name='name.txt' ");
+
+
+        if (!query.exec()) {
+            qDebug() << "Error find of file:" << query.lastError().text();
+            return;
+        }
+        // query.bindValue(":file_name", fileName);
+        //fileName.toStdString().data()
+        // query.addBindValue("n");
+        // std::cout << fileName<< "\n";
+        // model->setQuery("SELECT id, file_name, file_size, upload_date FROM files WHERE file_name='name.txt'");
+        // model->setQuery("SELECT id, file_name, file_size, upload_date FROM files");
+        // model->setQuery(query);
+    }else{
+        model->setQuery("SELECT id, file_name, file_size, upload_date FROM files");
+    }
+    // fileName.data()
+    // query.bindValue(":file","name");
+
+    // model->setQuery("SELECT id, file_name, file_size, upload_date FROM files WHERE file_name ");
 }
 
 void FileManager::updateTable() {
