@@ -3,6 +3,10 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QSqlQueryModel>
+#include <QVBoxLayout>
+#include <QDateTime>
+#include <QFile>
+#include <QFileDialog>
 
 #include "filemanager.hpp"
 

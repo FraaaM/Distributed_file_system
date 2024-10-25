@@ -5,12 +5,7 @@
 #include <QTableView>
 #include <QPushButton>
 #include <QLineEdit>
-#include <QVBoxLayout>
 #include <QSqlQueryModel>
-#include <QFileDialog>
-#include <QFile>
-#include <QDateTime>
-#include <QLineEdit>
 
 class FileManager : public QWidget {
 	Q_OBJECT
