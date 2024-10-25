@@ -2,8 +2,6 @@
 #include <QSqlError>
 #include <QDebug>
 #include <QMessageBox>
-#include <QString>
-#include <iostream>
 #include <QSqlQueryModel>
 
 #include "filemanager.hpp"
@@ -19,39 +17,34 @@ FileManager::~FileManager() {
 }
 
 void FileManager::setupUI() {
-	addButton = new QPushButton("Add File", this);
-	connect(addButton, &QPushButton::clicked, this, &FileManager::addFile);
+    addButton = new QPushButton("Add File", this);
+    connect(addButton, &QPushButton::clicked, this, &FileManager::addFile);
 
-	downloadButton = new QPushButton("Download File", this);
-	connect(downloadButton, &QPushButton::clicked, this, &FileManager::downloadFile);
+    downloadButton = new QPushButton("Download File", this);
+    connect(downloadButton, &QPushButton::clicked, this, &FileManager::downloadFile);
 
-     removeButton = new QPushButton("Remove File", this);
-     connect(removeButton, &QPushButton::clicked, this, &FileManager::removeFile);
+    removeButton = new QPushButton("Remove File", this);
+    connect(removeButton, &QPushButton::clicked, this, &FileManager::removeFile);
 
-	tableView = new QTableView(this);
-	model = new QSqlQueryModel(this);
-	tableView->setModel(model);
+    tableView = new QTableView(this);
+    model = new QSqlQueryModel(this);
+    tableView->setModel(model);
 
-     findPanel = new QLineEdit(this);
-     findPanel->setPlaceholderText("Введите название файла");
-     // QSortFilterSqlQueryModel *model1 = new QSortFilterSqlQueryModel(model);
-     connect(findPanel, &QLineEdit::textChanged, this, &FileManager::findFiles);
-     // connect(findPanel, SIGNAL (textChanged(QString)), model1, SLOT (filter(QString)));
+    findPanel = new QLineEdit(this);
+    findPanel->setPlaceholderText("Введите название файла");
+    connect(findPanel, &QLineEdit::textChanged, this, &FileManager::findFiles);
 
+    QVBoxLayout *layout = new QVBoxLayout(this);
 
+    layout->addWidget(findPanel);
+    layout->addWidget(addButton);
+    layout->addWidget(removeButton);
+    layout->addWidget(downloadButton);
+    layout->addWidget(tableView);
 
-
-	QVBoxLayout *layout = new QVBoxLayout(this);
-
-     layout->addWidget(findPanel);
-	layout->addWidget(addButton);
-     layout->addWidget(removeButton);
-	layout->addWidget(downloadButton);
-	layout->addWidget(tableView);
-
-	setLayout(layout);
-	setWindowTitle("File Manager");
-	resize(500, 400);
+    setLayout(layout);
+    setWindowTitle("File Manager");
+    resize(500, 400);
 }
 
 void FileManager::setupDatabase() {
@@ -110,8 +103,8 @@ void FileManager::addFile() {
 	}
 }
 
-void FileManager::downloadFile() {
-	QModelIndex index = tableView->currentIndex();
+void FileManager::downloadFile(){
+    QModelIndex index = tableView->currentIndex();
 	if (!index.isValid()) {
 		QMessageBox::warning(this, "Selection Error", "Please select a file to download.");
 		return;
@@ -122,7 +115,9 @@ void FileManager::downloadFile() {
 
 	QSqlQuery query;
 	query.prepare("SELECT file_name, file_data FROM files WHERE id = :id");
-	query.bindValue(":id", fileId);
+
+    query.bindValue(":id", fileId);
+
 
 	if (!query.exec()) {
 		qDebug() << "Error retrieving file:" << query.lastError().text();
@@ -176,30 +171,19 @@ void FileManager::removeFile(){
 }
 void FileManager::findFiles(){
     QSqlQuery query;
-
     QString fileName = findPanel->text();
     if(fileName != ""){
-        query.prepare("SELECT id, file_name, file_size, upload_date FROM files WHERE file_name='name.txt' ");
-
-
+        query.prepare("SELECT id, file_name, file_size, upload_date FROM files WHERE file_name LIKE :file_name || '%'");
+        query.bindValue(":file_name", fileName);
+        query.exec();
+        model->setQuery(query);
         if (!query.exec()) {
             qDebug() << "Error find of file:" << query.lastError().text();
             return;
         }
-        // query.bindValue(":file_name", fileName);
-        //fileName.toStdString().data()
-        // query.addBindValue("n");
-        // std::cout << fileName<< "\n";
-        // model->setQuery("SELECT id, file_name, file_size, upload_date FROM files WHERE file_name='name.txt'");
-        // model->setQuery("SELECT id, file_name, file_size, upload_date FROM files");
-        // model->setQuery(query);
     }else{
         model->setQuery("SELECT id, file_name, file_size, upload_date FROM files");
     }
-    // fileName.data()
-    // query.bindValue(":file","name");
-
-    // model->setQuery("SELECT id, file_name, file_size, upload_date FROM files WHERE file_name ");
 }
 
 void FileManager::updateTable() {
