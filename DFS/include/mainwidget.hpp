@@ -1,6 +1,6 @@
 #pragma once
 
-#include <QListWidget>
+#include <QTableWidget>
 #include <QPushButton>
 
 #include "networkmanager.hpp"
@@ -13,7 +13,7 @@ namespace SHIZ{
 			NetworkManager* networkManager;
 			QString currentLogin;
 
-			QListWidget* fileListWidget;
+			QTableWidget* fileTableWidget;
 			QPushButton* refreshButton;
 			QPushButton* uploadButton;
 			QPushButton* downloadButton;

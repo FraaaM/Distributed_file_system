@@ -55,12 +55,12 @@ namespace SHIZ{
 		QStringList fileList;
 
 		while (query.next()) {
-			QString fileInfo = query.value(0).toString() + " | Owner: " + query.value(1).toString() +
-				" | Size: " + query.value(2).toString() + " bytes | Uploaded: " + query.value(3).toString();
+			QString fileInfo = query.value(0).toString() + "|" + query.value(1).toString() + "|" +
+							   query.value(2).toString() + "|" + query.value(3).toString();
 			fileList << fileInfo;
 		}
 
-		QString response = "FILES_LIST:" + fileList.join(",");
+		QString response = "FILES_LIST:" + fileList.join(";");
 		clientSocket->write(response.toUtf8());
 		clientSocket->flush();
 	}

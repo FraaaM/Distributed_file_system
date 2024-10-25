@@ -1,6 +1,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QVBoxLayout>
+#include <QHeaderView>
 
 #include "mainwidget.hpp"
 
@@ -11,8 +12,13 @@ namespace SHIZ{
 		QVBoxLayout* layout = new QVBoxLayout(this);
 
 
-		fileListWidget = new QListWidget(this);
-		layout->addWidget(fileListWidget);
+		fileTableWidget = new QTableWidget(this);
+		fileTableWidget->setColumnCount(4);
+		fileTableWidget->setHorizontalHeaderLabels({"File Name", "Owner", "Size (bytes)", "Upload Date"});
+		fileTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+		fileTableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+		fileTableWidget->setSortingEnabled(true);
+		layout->addWidget(fileTableWidget);
 
 		refreshButton = new QPushButton("Refresh File List", this);
 		layout->addWidget(refreshButton);
@@ -36,9 +42,9 @@ namespace SHIZ{
 
 
 	void MainWidget::onDownloadButtonClicked(){
-		QListWidgetItem* selectedItem = fileListWidget->currentItem();
-		if (selectedItem) {
-			QString fileName = selectedItem->text().split(" | ").first();
+		int selectedRow = fileTableWidget->currentRow();
+		if (selectedRow >= 0) {
+			QString fileName = fileTableWidget->item(selectedRow, 0)->text();
 			bool success = networkManager->downloadFile(fileName);
 			if (success) {
 				QMessageBox::information(this, "Download", "File downloaded successfully.");
@@ -52,8 +58,22 @@ namespace SHIZ{
 
 	void MainWidget::onRefreshButtonClicked(){
 		QStringList files = networkManager->requestFileList();
-		fileListWidget->clear();
-		fileListWidget->addItems(files);
+
+		fileTableWidget->setRowCount(files.size());
+		for (int i = 0; i < files.size(); ++i) {
+			QStringList fileInfo = files[i].split("|");
+			if (fileInfo.size() == 4) {
+				QTableWidgetItem* fileNameItem = new QTableWidgetItem(fileInfo[0]);
+				QTableWidgetItem* ownerItem = new QTableWidgetItem(fileInfo[1]);
+				QTableWidgetItem* sizeItem = new QTableWidgetItem(fileInfo[2]);
+				QTableWidgetItem* dateItem = new QTableWidgetItem(fileInfo[3]);
+
+				fileTableWidget->setItem(i, 0, fileNameItem);
+				fileTableWidget->setItem(i, 1, ownerItem);
+				fileTableWidget->setItem(i, 2, sizeItem);
+				fileTableWidget->setItem(i, 3, dateItem);
+			}
+		}
 	}
 
 	void MainWidget::onUploadButtonClicked(){

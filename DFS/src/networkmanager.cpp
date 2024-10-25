@@ -53,7 +53,8 @@ namespace SHIZ {
 		if (tcpSocket->waitForReadyRead(3000)) {
 			QString response = QString::fromUtf8(tcpSocket->readAll());
 			if (response.startsWith("FILES_LIST:")) {
-				return response.mid(11).split(",");
+				QString fileData = response.mid(11);
+				return fileData.split(";");
 			}
 		}
 		return QStringList();
