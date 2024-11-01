@@ -7,18 +7,23 @@
 #include <QDateTime>
 #include <QFile>
 #include <QFileDialog>
+#include <QSortFilterProxyModel>
+#include <QHeaderView>
+#include <QDir>
+#include <QCoreApplication>
+#include <filesystem>
 
 #include "filemanager.hpp"
+#include "filesdatabase.hpp"
+#include "database.hpp"
 
-FileManager::FileManager(QWidget *parent) : QWidget(parent) {
-	setupUI();
-	setupDatabase();
-	updateTable();
+
+
+FileManager::FileManager(DatabaseManager* manager,QWidget *parent) : QWidget(parent), db(manager) {
+    setupUI();
+    updateTable();
 }
 
-FileManager::~FileManager() {
-	db.close();
-}
 
 void FileManager::setupUI() {
     addButton = new QPushButton("Add File", this);
@@ -30,9 +35,29 @@ void FileManager::setupUI() {
     removeButton = new QPushButton("Remove File", this);
     connect(removeButton, &QPushButton::clicked, this, &FileManager::removeFile);
 
+    refreshDataButton = new QPushButton("Refresh Data", this);
+    connect(refreshDataButton, &QPushButton::clicked, this, &FileManager::updateTable);
+
     tableView = new QTableView(this);
+    tableView->setSortingEnabled(true);
     model = new QSqlQueryModel(this);
-    tableView->setModel(model);
+
+    QSortFilterProxyModel* proxyModel = new QSortFilterProxyModel(this);
+    proxyModel->setSourceModel(model);
+    proxyModel->setSortRole(Qt::EditRole);
+    proxyModel->setSortCaseSensitivity(Qt::CaseInsensitive);
+
+    tableView->setModel(proxyModel);
+
+    connect(tableView->horizontalHeader(), &QHeaderView::sectionClicked, [=](int index) {
+        Qt::SortOrder order = proxyModel->sortOrder();
+        if (proxyModel->sortColumn() == index) {
+            order = (order == Qt::AscendingOrder) ? Qt::DescendingOrder : Qt::AscendingOrder;
+        } else {
+            order = Qt::AscendingOrder;
+        }
+        proxyModel->sort(index, order);
+    });
 
     findPanel = new QLineEdit(this);
     findPanel->setPlaceholderText("Введите название файла");
@@ -44,152 +69,167 @@ void FileManager::setupUI() {
     layout->addWidget(addButton);
     layout->addWidget(removeButton);
     layout->addWidget(downloadButton);
+    layout->addWidget(refreshDataButton);
     layout->addWidget(tableView);
 
     setLayout(layout);
     setWindowTitle("File Manager");
     resize(500, 400);
 }
-
-void FileManager::setupDatabase() {
-    db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName("files.db");
-
-	if (!db.open()) {
-		qDebug() << "Error: connection with database failed";
-		return;
-	}
-
-	QSqlQuery query;
-	QString createTableQuery = "CREATE TABLE IF NOT EXISTS files ("
-							   "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-							   "file_name TEXT,"
-							   "file_size INTEGER,"
-							   "upload_date TEXT,"
-							   "file_data BLOB)";
-	if (!query.exec(createTableQuery)) {
-		qDebug() << "Error creating table:" << query.lastError().text();
-	}
-}
-
 void FileManager::addFile() {
-	QString filePath = QFileDialog::getOpenFileName(this, "Select File", "", "All Files (*)");
-	if (filePath.isEmpty()) {
-		QMessageBox::warning(this, "File Selection", "No file selected.");
-		return;
-	}
+    QString filePath = QFileDialog::getOpenFileName(this, "Select File" , "" , "All Files (*)");
+    if (filePath.isEmpty()) {
+        QMessageBox::warning(this, "File Selection" , "No file selected.");
+        return;
+    }
 
-	QFile file(filePath);
-	if (!file.open(QIODevice::ReadOnly)) {
-		QMessageBox::warning(this, "File Error", "Could not open file.");
-		return;
-	}
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        QMessageBox::warning(this, "File Error" , "Could not open file.");
+        return;
+    }
+    QString fileName = QFileInfo(filePath).fileName();
 
-	QByteArray fileData = file.readAll();
-	QString fileName = QFileInfo(filePath).fileName();
-	qint64 fileSize = file.size();
-	QString uploadDate = QDateTime::currentDateTime().toString(Qt::ISODate);
+    QDir dir = QCoreApplication::applicationDirPath();
+    QString backupFolder = dir.absoluteFilePath("../../Backup/");
+    if(!std::filesystem::exists(backupFolder.toStdString())){
+        QMessageBox::critical(this, "Error" , "Doesn't exist backup folder!");
+        return;
+    }
+    QString backupPath = dir.absoluteFilePath(backupFolder + fileName);
 
-	file.close();
+    const std::filesystem::path fromPath = filePath.toStdString().data();
+    const std::filesystem::path toPath = backupPath.toStdString().data();
 
-    QSqlQuery query;
-     query.prepare("INSERT INTO files (file_name, file_size, upload_date, file_data) "
-				  "VALUES (:file_name, :file_size, :upload_date, :file_data)");
-	query.bindValue(":file_name", fileName);
-	query.bindValue(":file_size", fileSize);
-	query.bindValue(":upload_date", uploadDate);
-	query.bindValue(":file_data", fileData);
+    if(std::filesystem::exists(fromPath))
+        std::filesystem::copy(fromPath, toPath);
+    else{
+        QMessageBox::critical(this, "Error" , "Doesn't exist path!");
+        return;
+    }
 
-	if (!query.exec()) {
-		qDebug() << "Error inserting into table:" << query.lastError().text();
-	} else {
-		updateTable();
-	}
+
+    qint64 fileSize = file.size();
+    QString uploadDate = QDateTime::currentDateTime().toString(Qt::ISODate);
+    bool isPrivate = false;
+
+    file.close();
+
+
+    QString request = "INSERT INTO " FILES_TABLE " (" FILE_NAME ", " FILE_SIZE ", " UPLOAD_DATE ", " FILE_PATH ", " FILE_IS_PRIVATE ") "
+                      "VALUES (?, ?, ?, ?, ?)";
+
+    QVariantList values;
+    values.append(QVariant(fileName));
+    values.append(QVariant(fileSize));
+    values.append(QVariant(uploadDate));
+    values.append(QVariant(backupPath));
+    values.append(QVariant(isPrivate));
+
+    QSqlQuery query = db->execPreparedQuery(request, values);
+
+    // if (!query.exec()) {
+    //     qDebug() << "Error inserting into table:" << query.lastError().text();
+    // } else {
+        updateTable();
+    // }
 }
 
 void FileManager::downloadFile(){
     QModelIndex index = tableView->currentIndex();
-	if (!index.isValid()) {
-		QMessageBox::warning(this, "Selection Error", "Please select a file to download.");
-		return;
-	}
+    if (!index.isValid()) {
+        QMessageBox::warning(this, "Selection Error" , "Please select a file to download.");
+        return;
+    }
+    int row = index.row();
+    int fieId = model->data(model->index(row, 0)).toInt();
 
-	int row = index.row();
-	int fileId = model->data(model->index(row, 0)).toInt();
+    QString request = "SELECT " FILE_NAME " , " FILE_PATH " FROM " FILES_TABLE " WHERE " ID " = ?";
 
-	QSqlQuery query;
-	query.prepare("SELECT file_name, file_data FROM files WHERE id = :id");
+    QVariantList values;
+    values.append(QVariant(fieId));
+    QSqlQuery query = db->execPreparedQuery(request, values);
 
-    query.bindValue(":id", fileId);
+    // if (!query.exec()) {
+    //     qDebug() << "Error retrieving file:" << query.lastError().text();
+    //     return;
+    // }
 
+    if (query.next()) {
+        QString fileName = query.value(0).toString();
+        const std::filesystem::path filePath = query.value(1).toString().toStdString();
 
-	if (!query.exec()) {
-		qDebug() << "Error retrieving file:" << query.lastError().text();
-		return;
-	}
+        QString savePath = QFileDialog::getSaveFileName(this, "Save File", fileName);
+        if (savePath.isEmpty()) {
+            return;
+        }
+        const std::filesystem::path pathTo = savePath.toStdString();
 
-	if (query.next()) {
-		QString fileName = query.value(0).toString();
-		QByteArray fileData = query.value(1).toByteArray();
+        if(std::filesystem::exists(filePath)){
+            std::filesystem::copy(filePath, pathTo);
+        }else{
+            QMessageBox::critical(this, "Error" , "File is not exist!");
+            return;
+        }
 
-		QString savePath = QFileDialog::getSaveFileName(this, "Save File", fileName);
-		if (savePath.isEmpty()) {
-			return;
-		}
-
-		QFile file(savePath);
-		if (!file.open(QIODevice::WriteOnly)) {
-			QMessageBox::warning(this, "File Error", "Could not save file.");
-			return;
-		}
-
-		file.write(fileData);
-		file.close();
-
-		QMessageBox::information(this, "Success", "File downloaded successfully.");
-	}
+        QMessageBox::information(this, "Success" , "File downloaded successfully.");
+    }
 }
 
 void FileManager::removeFile(){
     QModelIndex index = tableView->currentIndex();
     if (!index.isValid()) {
-        QMessageBox::warning(this, "Selection Error", "Please select a file to remove.");
+        QMessageBox::warning(this, "Selection Error" , "Please select a file to remove.");
         return;
     }
 
     int row = index.row();
-    int fileId = model->data(model->index(row, 0)).toInt();
+    int field = model->data(model->index(row, 0)).toInt();
 
-    QSqlQuery query;
-    query.prepare("DELETE FROM files WHERE id = :id");
-    query.bindValue(":id", fileId);
-
-    if (!query.exec()) {
-        qDebug() << "Error remove of file:" << query.lastError().text();
-        return;
-    }else{
-        updateTable();
+    QString request = "SELECT " FILE_PATH " FROM " FILES_TABLE " WHERE " ID " = ?";
+    QVariantList values;
+    values.append(QVariant(field));
+    QSqlQuery query = db->execPreparedQuery(request, values);
+    // qDebug() << field;
+    while(query.next()){
+        const std::filesystem::path backupPath = query.value(0).toString().toStdString();
+        std::filesystem::remove(backupPath);
+        values.clear();
     }
 
-    QMessageBox::information(this, "Success", "File removed successfully.");
+    request = "DELETE FROM " FILES_TABLE " WHERE " ID " = ?";
+    values.append(QVariant(field));
+    query = db->execPreparedQuery(request, values);
+
+    // if (!query.exec()) {
+    //     qDebug() << "Error remove of file:" << query.lastError().text();
+    //     return;
+    // }else{
+
+    // }
+
+    updateTable();
+
+    QMessageBox::information(this, "Success" , "File removed successfully.");
 }
+
 void FileManager::findFiles(){
-    QSqlQuery query;
     QString fileName = findPanel->text();
     if(fileName != ""){
-        query.prepare("SELECT id, file_name, file_size, upload_date FROM files WHERE file_name LIKE :file_name || '%'");
-        query.bindValue(":file_name", fileName);
-        query.exec();
-        model->setQuery(query);
+        QString request ="SELECT " ID " , " FILE_NAME " , " FILE_SIZE " , " UPLOAD_DATE " FROM " FILES_TABLE " WHERE " FILE_NAME " LIKE ? || '%'";
+        QVariantList values;
+        values.append(QVariant(fileName));
+        QSqlQuery query = db->execPreparedQuery(request, values);
         if (!query.exec()) {
             qDebug() << "Error find of file:" << query.lastError().text();
             return;
         }
+        model->setQuery(query);
     }else{
-        model->setQuery("SELECT id, file_name, file_size, upload_date FROM files");
+        model->setQuery("SELECT " ID " , " FILE_NAME " , " FILE_SIZE " , " UPLOAD_DATE " FROM " FILES_TABLE);
     }
 }
 
 void FileManager::updateTable() {
-	model->setQuery("SELECT id, file_name, file_size, upload_date FROM files");
+    model->setQuery("SELECT " ID " , " FILE_NAME " , " FILE_SIZE " , " UPLOAD_DATE " FROM " FILES_TABLE);
 }

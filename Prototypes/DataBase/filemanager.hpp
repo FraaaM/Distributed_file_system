@@ -7,13 +7,16 @@
 #include <QLineEdit>
 #include <QSqlQueryModel>
 
+#include "database.hpp"
+
 class FileManager : public QWidget {
 	Q_OBJECT
 
 	private:
-        QSqlDatabase db;
+        DatabaseManager* db;
         QPushButton* addButton;
         QPushButton* removeButton;
+        QPushButton* refreshDataButton;
         QPushButton* downloadButton;
         QTableView* tableView;
         QSqlQueryModel* model;
@@ -21,8 +24,7 @@ class FileManager : public QWidget {
 
 
 	public:
-        explicit FileManager(QWidget *parent = nullptr);
-        ~FileManager();
+        FileManager(DatabaseManager* manager, QWidget *parent = nullptr);
 
 	private slots:
         void addFile();
