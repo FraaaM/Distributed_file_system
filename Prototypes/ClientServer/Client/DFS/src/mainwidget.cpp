@@ -29,10 +29,14 @@ namespace SHIZ{
 		downloadButton = new QPushButton("Download File", this);
 		layout->addWidget(downloadButton);
 
+        logoutButton = new QPushButton("Log Out", this);
+        layout->addWidget(logoutButton);
+
 
 		connect(refreshButton, &QPushButton::clicked, this, &MainWidget::onRefreshButtonClicked);
 		connect(uploadButton, &QPushButton::clicked, this, &MainWidget::onUploadButtonClicked);
 		connect(downloadButton, &QPushButton::clicked, this, &MainWidget::onDownloadButtonClicked);
+        connect(logoutButton, &QPushButton::clicked, this, &MainWidget::onLogOutButtonClicked);
 	}
 
 
@@ -88,4 +92,10 @@ namespace SHIZ{
 			}
 		}
 	}
+
+    void MainWidget::onLogOutButtonClicked() {
+        fileTableWidget->clear();
+        emit showLoginWindow();
+    }
+
 }

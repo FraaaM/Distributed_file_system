@@ -27,6 +27,8 @@ namespace SHIZ{
 
 		connect(registrationWidget, &RegistrationWidget::registrationSuccessful, this, &Window::onRegistrationSuccessful);
 		connect(registrationWidget, &RegistrationWidget::showLoginWindow, this, &Window::onSwitchToLoginWindow);
+
+        connect(mainWidget, &MainWidget::showLoginWindow, this, &Window::onSwitchToLoginWindow);///////////////////
 	}
 
 	void Window::onLoginSuccessful(const QString& login) {
@@ -40,6 +42,7 @@ namespace SHIZ{
 	}
 
 	void Window::onSwitchToLoginWindow() {
+        loginWidget->ClearData();
 		stackedWidget->setCurrentWidget(loginWidget);
 	}
 

@@ -35,7 +35,6 @@ namespace SHIZ {
 		connect(registrationButton, &QPushButton::clicked, this, &LoginWidget::onRegisterButtonClicked);
 	}
 
-
 	void LoginWidget::onEnterButtonClicked(){
 		if (!loginInput->text().isEmpty()) {
 			bool success = networkManager->sendLoginRequest(loginInput->text(), passwordInput->text());
@@ -54,4 +53,9 @@ namespace SHIZ {
 
 		emit showRegistrationWindow();
 	}
+
+    void LoginWidget::ClearData() {
+        loginInput->clear();
+        passwordInput->clear();
+    }
 }

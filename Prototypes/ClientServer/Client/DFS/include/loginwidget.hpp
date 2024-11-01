@@ -20,6 +20,7 @@ namespace SHIZ{
 
 		public:
 			LoginWidget(NetworkManager* manager, QWidget* parent = nullptr);
+            void ClearData();
 
 		signals:
 			void loginSuccessful(const QString& login);

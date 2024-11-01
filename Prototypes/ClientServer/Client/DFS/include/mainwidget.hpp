@@ -17,6 +17,7 @@ namespace SHIZ{
 			QPushButton* refreshButton;
 			QPushButton* uploadButton;
 			QPushButton* downloadButton;
+            QPushButton* logoutButton;
 
 		public:
 			MainWidget(NetworkManager* manager, QWidget* parent = nullptr);
@@ -30,5 +31,6 @@ namespace SHIZ{
 			void onDownloadButtonClicked();
 			void onRefreshButtonClicked();
 			void onUploadButtonClicked();
+            void onLogOutButtonClicked();
 	};
 }
