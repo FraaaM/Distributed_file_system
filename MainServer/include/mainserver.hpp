@@ -23,7 +23,7 @@ namespace SHIZ{
 			void processFileListRequest(QTcpSocket* clientSocket);
 			void processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts);
 			void processRegistrationRequest(QTcpSocket* clientSocket, const QStringList& parts);
-			void processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, const QByteArray& fileData, qint64 fileSize);
+			void processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize);
 
 		private slots:
 			void handleClientData();

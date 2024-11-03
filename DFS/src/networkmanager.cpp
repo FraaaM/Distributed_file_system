@@ -22,100 +22,167 @@ namespace SHIZ {
 	}
 
 
-	bool NetworkManager::downloadFile(const QString& fileName){
-		QString downloadRequest = "DOWNLOAD:" + fileName;
-		tcpSocket->write(downloadRequest.toUtf8());
+	bool NetworkManager::downloadFile(const QString& fileName) {
+		QDataStream out(tcpSocket);
+		out << QString("DOWNLOAD") << fileName;
 		tcpSocket->flush();
 
-		if (tcpSocket->waitForReadyRead(3000)) {
-			QString response = QString::fromUtf8(tcpSocket->readAll());
-			if (response.startsWith("DOWNLOAD:")) {
-				QStringList parts = response.split(":");
-				if (parts.size() >= 3) {
-					QByteArray fileData = parts[2].toUtf8();
-
-					QFile file(fileName);
-					if (file.open(QIODevice::WriteOnly)) {
-						file.write(fileData);
-						file.close();
-						return true;
-					}
-				}
-			}
+		if (!tcpSocket->waitForReadyRead(3000)) {
+			qDebug() << "Server did not respond in time.";
+			return false;
 		}
-		return false;
+
+		QDataStream in(tcpSocket);
+		QString response;
+		qint64 fileSize = 0;
+
+		in >> response;
+		if (response != "DOWNLOAD_READY") {
+			qDebug() << "Server is not ready to send the file.";
+			return false;
+		}
+
+		in >> fileSize;
+		qDebug() << "File size:" << fileSize;
+
+		out << QString("READY_TO_RECEIVE");
+		tcpSocket->flush();
+
+		QFile file(fileName);
+		if (!file.open(QIODevice::WriteOnly)) {
+			qDebug() << "Cannot open file for writing.";
+			return false;
+		}
+
+		qint64 totalReceived = 0;
+		const qint64 chunkSize = 4096;
+		QByteArray chunk;
+
+		while (totalReceived < fileSize) {
+			if (!tcpSocket->waitForReadyRead(3000)) {
+				qDebug() << "No response from server while downloading.";
+				file.close();
+				return false;
+			}
+
+			in >> chunk;
+			file.write(chunk);
+			totalReceived += chunk.size();
+
+			out << QString("CHUNK_RECEIVED");
+			tcpSocket->flush();
+		}
+
+		file.close();
+		qDebug() << "File downloaded successfully:" << fileName;
+		return true;
 	}
 
 	QStringList NetworkManager::requestFileList(){
-		tcpSocket->write("GET_FILES");
+		QDataStream out(tcpSocket);
+		out << QString("GET_FILES");
 		tcpSocket->flush();
 
 		if (tcpSocket->waitForReadyRead(3000)) {
-			QString response = QString::fromUtf8(tcpSocket->readAll());
-			if (response.startsWith("FILES_LIST:")) {
-				QString fileData = response.mid(11);
-				return fileData.split(";");
+			QDataStream in(tcpSocket);
+			QString response;
+			QStringList fileList;
+
+			in >> response;
+			if (response == "FILES_LIST") {
+				in >> fileList;
+				return fileList;
 			}
 		}
 		return QStringList();
 	}
 
 	bool NetworkManager::sendLoginRequest(const QString& login, const QString& password) {
-		if (tcpSocket->state() == QTcpSocket::UnconnectedState) {
-			tcpSocket->connectToHost("127.0.0.1", 1234);
-		}
+		QDataStream out(tcpSocket);
+		out << QString("LOGIN") << login << password;
+		tcpSocket->flush();
 
-		if (tcpSocket->waitForConnected(3000)) {
-			QString loginData = "LOGIN:" + login + ":" + password;
-			tcpSocket->write(loginData.toUtf8());
-			tcpSocket->flush();
-
-			if (tcpSocket->waitForReadyRead(3000)) {
-				QString response = tcpSocket->readAll();
-				return response == "SUCCESS";
-			}
+		if (tcpSocket->waitForReadyRead(3000)) {
+			QDataStream in(tcpSocket);
+			QString response;
+			in >> response;
+			return response == "SUCCESS";
 		}
 
 		return false;
 	}
 
 	bool NetworkManager::sendRegistrationRequest(const QString& login, const QString& password) {
-		if (tcpSocket->state() == QTcpSocket::UnconnectedState) {
-			tcpSocket->connectToHost("127.0.0.1", 1234);
-		}
+		QDataStream out(tcpSocket);
+		out << QString("REGISTER") << login << password;
+		tcpSocket->flush();
 
-		if (tcpSocket->waitForConnected(3000)) {
-			QString registrationData = "REGISTER:" + login + ":" + password;
-			tcpSocket->write(registrationData.toUtf8());
-			tcpSocket->flush();
-
-			if (tcpSocket->waitForReadyRead(3000)) {
-				QString response = tcpSocket->readAll();
-				return response == "SUCCESS";
-			}
+		if (tcpSocket->waitForReadyRead(3000)) {
+			QDataStream in(tcpSocket);
+			QString response;
+			in >> response;
+			return response == "SUCCESS";
 		}
 
 		return false;
 	}
 
-	bool NetworkManager::uploadFile(const QString& filePath, const QString& owner){
+	bool NetworkManager::uploadFile(const QString& filePath, const QString& owner) {
 		QFile file(filePath);
 		if (!file.open(QIODevice::ReadOnly)) {
+			qDebug() << "Cannot open file for reading.";
 			return false;
 		}
 
-		QByteArray fileData = file.readAll();
 		QString fileName = QFileInfo(filePath).fileName();
 		qint64 fileSize = file.size();
+		qDebug() << "Uploading file:" << fileName << "Owner:" << owner << "Size:" << fileSize;
 
-		QString uploadRequest = "UPLOAD:" + fileName + ":" + owner + ":" + QString::fromUtf8(fileData) + ":" + QString::number(fileSize);
-		tcpSocket->write(uploadRequest.toUtf8());
+		QDataStream out(tcpSocket);
+		out << QString("UPLOAD") << fileName << owner << fileSize;
+		tcpSocket->flush();
+
+		if (!tcpSocket->waitForReadyRead(3000)) {
+			qDebug() << "Server did not respond in time.";
+			return false;
+		}
+
+		QString response;
+		QDataStream in(tcpSocket);
+		in >> response;
+
+		if (response != "READY_FOR_DATA") {
+			qDebug() << "Server is not ready for data.";
+			return false;
+		}
+
+		const qint64 chunkSize = 4096;
+		while (!file.atEnd()) {
+			QByteArray buffer = file.read(chunkSize);
+			out << buffer;
+			tcpSocket->flush();
+
+			if (!tcpSocket->waitForReadyRead(3000)) {
+				qDebug() << "No response from server after sending chunk.";
+				return false;
+			}
+
+			in >> response;
+			if (response != "CHUNK_RECEIVED") {
+				qDebug() << "Server did not acknowledge chunk.";
+				return false;
+			}
+		}
+
+		out << QByteArray();
 		tcpSocket->flush();
 
 		if (tcpSocket->waitForReadyRead(3000)) {
-			QString response = QString::fromUtf8(tcpSocket->readAll());
+			in >> response;
+			qDebug() << response;
 			return response == "UPLOAD_SUCCESS";
 		}
+
 		return false;
 	}
 

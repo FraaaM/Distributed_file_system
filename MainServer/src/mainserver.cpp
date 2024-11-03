@@ -1,4 +1,5 @@
 #include <QDateTime>
+#include <QFile>
 #include <QSqlError>
 #include <QSqlQuery>
 
@@ -22,6 +23,8 @@ namespace SHIZ{
 				   "size INTEGER, "
 				   "upload_date TEXT, "
 				   "data BLOB)");
+		query.exec("PRAGMA max_page_count = 2147483646;");
+		qDebug() << query.lastError();
 	}
 
 
@@ -38,16 +41,59 @@ namespace SHIZ{
 
 	void MainServer::processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName) {
 		QSqlQuery query;
-		query.prepare("SELECT data FROM files WHERE filename = ?");
-		query.addBindValue(fileName);
-		if (query.exec() && query.next()) {
-			QByteArray fileData = query.value(0).toByteArray();
-			QString response = "DOWNLOAD:" + fileName + ":" + QString::fromUtf8(fileData);
-			clientSocket->write(response.toUtf8());
-		} else {
-			clientSocket->write("DOWNLOAD_FAILED");
+		query.prepare("SELECT data, size FROM files WHERE filename = :filename");
+		query.bindValue(":filename", fileName);
+
+		if (!query.exec() || !query.next()) {
+			QDataStream out(clientSocket);
+			out << QString("DOWNLOAD_FAILED");
+			clientSocket->flush();
+			qDebug() << "File not found in database or query failed.";
+			return;
 		}
+
+		QByteArray fileData = query.value("data").toByteArray();
+		qint64 fileSize = query.value("size").toLongLong();
+
+		QDataStream out(clientSocket);
+		out << QString("DOWNLOAD_READY") << fileSize;
 		clientSocket->flush();
+
+		if (!clientSocket->waitForReadyRead(3000)) {
+			qDebug() << "No response from client for download request.";
+			return;
+		}
+
+		QDataStream in(clientSocket);
+		QString clientResponse;
+		in >> clientResponse;
+
+		if (clientResponse != "READY_TO_RECEIVE") {
+			qDebug() << "Client is not ready to receive file.";
+			return;
+		}
+
+		const qint64 chunkSize = 4096;
+		qint64 bytesSent = 0;
+
+		while (bytesSent < fileSize) {
+			QByteArray chunk = fileData.mid(bytesSent, chunkSize);
+			out << chunk;
+			clientSocket->flush();
+			bytesSent += chunk.size();
+
+			if (!clientSocket->waitForReadyRead(3000)) {
+				qDebug() << "No response from client after sending chunk.";
+				return;
+			}
+
+			in >> clientResponse;
+			if (clientResponse != "CHUNK_RECEIVED") {
+				qDebug() << "Client did not acknowledge chunk.";
+				return;
+			}
+		}
+		qDebug() << "File sent successfully:" << fileName;
 	}
 
 	void MainServer::processFileListRequest(QTcpSocket* clientSocket) {
@@ -60,8 +106,8 @@ namespace SHIZ{
 			fileList << fileInfo;
 		}
 
-		QString response = "FILES_LIST:" + fileList.join(";");
-		clientSocket->write(response.toUtf8());
+		QDataStream out(clientSocket);
+		out << QString("FILES_LIST") << fileList;
 		clientSocket->flush();
 	}
 
@@ -69,10 +115,11 @@ namespace SHIZ{
 		QString username = parts.value(1);
 		QString password = parts.value(2);
 
+		QDataStream out(clientSocket);
 		if (!username.isEmpty() && !password.isEmpty()) {
-			clientSocket->write("SUCCESS");
+			out << QString("SUCCESS");
 		} else {
-			clientSocket->write("FAILED");
+			out << QString("FAILED");
 		}
 		clientSocket->flush();
 	}
@@ -81,16 +128,44 @@ namespace SHIZ{
 		QString username = parts.value(1);
 		QString password = parts.value(2);
 
+		QDataStream out(clientSocket);
 		if (!username.isEmpty() && !password.isEmpty()) {
-			clientSocket->write("SUCCESS");
+			out << QString("SUCCESS");
 		} else {
-			clientSocket->write("FAILED");
+			out << QString("FAILED");
 		}
 		clientSocket->flush();
 	}
 
-	void MainServer::processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, const QByteArray& fileData, qint64 fileSize) {
+	void MainServer::processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize) {
 		QString uploadDate = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+
+		QByteArray fileData;
+		qint64 totalReceived = 0;
+
+		QDataStream out(clientSocket);
+		out << QString("READY_FOR_DATA");
+		clientSocket->flush();
+
+		while (totalReceived < fileSize) {
+			if (clientSocket->waitForReadyRead(3000)) {
+				QDataStream in(clientSocket);
+				QByteArray chunk;
+				in >> chunk;
+				if (chunk.isEmpty()) {
+					qDebug() << "Received empty chunk, ending upload.";
+					break;
+				}
+				fileData.append(chunk);
+				totalReceived += chunk.size();
+
+				out << QString("CHUNK_RECEIVED");
+				clientSocket->flush();
+			} else {
+				qDebug() << "No data received from client.";
+				break;
+			}
+		}
 
 		QSqlQuery query;
 		query.prepare("INSERT INTO files (filename, owner, size, upload_date, data) VALUES (?, ?, ?, ?, ?)");
@@ -101,9 +176,10 @@ namespace SHIZ{
 		query.addBindValue(fileData);
 
 		if (query.exec()) {
-			clientSocket->write("UPLOAD_SUCCESS");
+			out << QString("UPLOAD_SUCCESS");
 		} else {
-			clientSocket->write("UPLOAD_FAILED");
+			qDebug() << query.lastError();
+			out << QString("UPLOAD_FAILED");
 		}
 		clientSocket->flush();
 	}
@@ -113,27 +189,33 @@ namespace SHIZ{
 		QTcpSocket* clientSocket = qobject_cast<QTcpSocket*>(sender());
 		if (!clientSocket) return;
 
-		QByteArray data = clientSocket->readAll();
-		QString request = QString::fromUtf8(data);
-		qDebug() << "Received request:" << request;
+		QDataStream in(clientSocket);
+		QString command;
+		in >> command;
 
-		QStringList parts = request.split(":");
-		if (parts.isEmpty()) return;
-
-		if (request.startsWith("DOWNLOAD:")) {
-			processDownloadRequest(clientSocket, parts.value(1));
-		} else if (request.startsWith("GET_FILES")) {
+		if (command == "DOWNLOAD") {
+			QString fileName;
+			in >> fileName;
+			processDownloadRequest(clientSocket, fileName);
+		} else if (command == "GET_FILES") {
 			processFileListRequest(clientSocket);
-		} else if (request.startsWith("LOGIN:")) {
+		} else if (command == "LOGIN") {
+			QStringList parts;
+			QString login, password;
+			in >> login >> password;
+			parts << "LOGIN" << login << password;
 			processLoginRequest(clientSocket, parts);
-		} else if (request.startsWith("REGISTER:")) {
+		} else if (command == "REGISTER") {
+			QStringList parts;
+			QString login, password;
+			in >> login >> password;
+			parts << "REGISTER" << login << password;
 			processRegistrationRequest(clientSocket, parts);
-		} else   if (request.startsWith("UPLOAD:")) {
-			QString fileName = parts.value(1);
-			QString owner = parts.value(2);
-			QByteArray fileData = parts.value(3).toUtf8();
-			qint64 fileSize = parts.value(4).toLongLong();
-			processUploadRequest(clientSocket, fileName, owner, fileData, fileSize);
+		} else if (command == "UPLOAD") {
+			QString fileName, owner;
+			qint64 fileSize;
+			in >> fileName >> owner >> fileSize;
+			processUploadRequest(clientSocket, fileName, owner, fileSize);
 		}
 	}
 
