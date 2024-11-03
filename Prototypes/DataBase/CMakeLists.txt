@@ -16,12 +16,21 @@ set(PROJECT_SOURCES
         main.cpp
         filemanager.cpp
         filemanager.hpp
+        loginuser.hpp
+        loginuser.cpp
+        registeruser.hpp registeruser.cpp
+        admininterface.hpp admininterface.cpp
+        mainwindow.hpp mainwindow.cpp
+
+		database.hpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(DataBase
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+		databasemanager.hpp databasemanager.cpp
+
     )
 else()
     if(ANDROID)
@@ -31,6 +40,7 @@ else()
     else()
         add_executable(DataBase
             ${PROJECT_SOURCES}
+
         )
     endif()
 endif()

@@ -5,32 +5,34 @@
 #include <QTableView>
 #include <QPushButton>
 #include <QLineEdit>
-#include <QVBoxLayout>
 #include <QSqlQueryModel>
-#include <QFileDialog>
-#include <QFile>
-#include <QDateTime>
+
+#include "databasemanager.hpp"
 
 class FileManager : public QWidget {
 	Q_OBJECT
 
 	private:
-		QSqlDatabase db;
-		QPushButton* addButton;
-		QPushButton* downloadButton;
-		QTableView* tableView;
-		QSqlQueryModel* model;
+        DatabaseManager* db;
+        QPushButton* addButton;
+        QPushButton* removeButton;
+        QPushButton* refreshDataButton;
+        QPushButton* downloadButton;
+        QTableView* tableView;
+        QSqlQueryModel* model;
+        QLineEdit* findPanel;
+
 
 	public:
-		explicit FileManager(QWidget *parent = nullptr);
-		~FileManager();
+        FileManager(DatabaseManager* manager, QWidget *parent = nullptr);
 
 	private slots:
-		void addFile();
-		void downloadFile();
+        void addFile();
+        void downloadFile();
+        void findFiles();
+        void removeFile();
 
 	private:
-		void setupUI();
-		void setupDatabase();
-		void updateTable();
+        void setupUI();
+        void updateTable();
 };

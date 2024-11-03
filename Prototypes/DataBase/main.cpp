@@ -1,12 +1,14 @@
 #include <QApplication>
 
-#include "filemanager.hpp"
+
+#include "mainwindow.hpp"
+#include "databasemanager.hpp"
 
 int main(int argc, char *argv[]) {
 	QApplication app(argc, argv);
 
-	FileManager client;
-	client.show();
+    MainWindow window;
+    window.show();
 
-	return app.exec();
+    return app.exec();
 }
