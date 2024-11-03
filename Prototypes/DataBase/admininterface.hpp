@@ -8,7 +8,7 @@
 #include <QSqlQueryModel>
 
 
-#include "database.hpp"
+#include "databasemanager.hpp"
 
 class AdminInterface : public QWidget {
     Q_OBJECT
@@ -22,7 +22,6 @@ private:
 
 public:
     AdminInterface(DatabaseManager *manager, QWidget *parent);
-    ~AdminInterface();
 
 private slots:
     void addGroup();
@@ -30,6 +29,5 @@ private slots:
 
 private:
     void setupUI();
-    void setupDatabase();
     void updateTable();
 };

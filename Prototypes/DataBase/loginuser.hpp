@@ -7,7 +7,7 @@
 #include <QSqlQueryModel>
 
 
-#include "database.hpp"
+#include "databasemanager.hpp"
 
 class LoginUser : public QWidget {
     Q_OBJECT
@@ -22,13 +22,11 @@ private:
 
 
     void setupUI();
-    void setupDataBase();
-
 public:
     LoginUser(DatabaseManager* manager, QWidget* parent = nullptr);
 
 signals:
-    void loginSuccessful(const QString& login);
+    void loginSuccessful(const QString& login, std::string status);
     void showRegistrationWindow();
 
 private slots:

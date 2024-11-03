@@ -6,7 +6,7 @@
 #include <QSqlDatabase>
 
 
-#include "database.hpp"
+#include "databasemanager.hpp"
 
 class RegisterUser  : public QWidget{
     Q_OBJECT

@@ -12,15 +12,11 @@
 
 
 #include "admininterface.hpp"
-#include "usersdatabase.hpp"
+#include "database.hpp"
 
 AdminInterface::AdminInterface(DatabaseManager *manager, QWidget *parent) : QWidget(parent), db(manager) {
     setupUI();
     updateTable();
-}
-
-AdminInterface::~AdminInterface() {
-    // db.close();
 }
 
 void AdminInterface::setupUI() {
@@ -28,8 +24,10 @@ void AdminInterface::setupUI() {
 
     tableView = new QTableView(this);
     tableView->setSortingEnabled(true);
-    model = new QSqlQueryModel(this);
+    tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
+
+    model = new QSqlQueryModel(this);
     QSortFilterProxyModel* proxyModel = new QSortFilterProxyModel(this);
     proxyModel->setSourceModel(model);
     proxyModel->setSortRole(Qt::EditRole);
@@ -59,56 +57,23 @@ void AdminInterface::setupUI() {
 
     setLayout(layout);
     setWindowTitle("Admin Manager");
-    resize(500, 400);
 }
 
 void AdminInterface::addGroup(){
 
 }
-
-void AdminInterface::setupDatabase(){
-    // QDir dir = QCoreApplication::applicationDirPath();
-    // QString dbPath = dir.absoluteFilePath("../../DataBaseFiles/" USERS_DATABASE);
-
-
-    // db = QSqlDatabase::addDatabase("QSQLITE");
-    // db.setDatabaseName(dbPath);
-
-
-    // if (!db.open()) {
-    //     qDebug() << "Error: connection with database failed";
-    //     return;
-    // }
-
-    // QSqlQuery query;
-    // QString createTableQuery = "CREATE TABLE IF NOT EXISTS " USERS_TABLE " ("
-    //     ID " INTEGER PRIMARY KEY ASC AUTOINCREMENT,"
-    //     LOGIN " TEXT,"
-    //     PASSWORD " TEXT,"
-    //     TEAM " INTEGER,"
-    //     STATUS " TEXT,"
-    //     RIGHT " TEXT)";
-    // if (!query.exec(createTableQuery)) {
-    //     qDebug() << "Error creating table:" << query.lastError().text();
-    // }else{
-    //     qDebug() << "i here";
-    // }
-}
-
 void AdminInterface::findUsers(){
-    QSqlQuery query;
-    QString userLogin = findPanel->text();
-    if(userLogin != ""){
-        query.prepare(
-            "SELECT * FROM " USERS_TABLE " WHERE "
-            LOGIN " LIKE :login || '%'");
-        query.bindValue(":login", userLogin);
-        query.exec();
-        // model->setQuery(query);
+    QString userName = findPanel->text();
+    if(userName != ""){
+        QString request ="SELECT * FROM " USERS_TABLE " WHERE " LOGIN " LIKE ? || '%'";
+        QVariantList values;
+        values.append(QVariant(userName));
+        QSqlQuery query = db->execPreparedQuery(request, values);
         if (!query.exec()) {
-            qDebug() << "Error find login in database:" << query.lastError().text();
+            qDebug() << "Error find of file:" << query.lastError().text();
             return;
         }
+        model->setQuery(std::move(query));
     }else{
         model->setQuery("SELECT * FROM " USERS_TABLE);
     }

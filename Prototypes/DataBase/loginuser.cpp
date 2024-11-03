@@ -10,7 +10,7 @@
 #include <QDir>
 
 #include "loginuser.hpp"
-#include "usersdatabase.hpp"
+#include "database.hpp"
 
 
 LoginUser::LoginUser(DatabaseManager* manager, QWidget *parent) : QWidget(parent), db(manager) {
@@ -48,7 +48,7 @@ void LoginUser::setupUI() {
 
 void LoginUser::onEnterButtonClicked() {
     if (!loginInput->text().isEmpty() && !passwordInput->text().isEmpty()) {
-        QString st = "SELECT * FROM " USERS_TABLE " WHERE " LOGIN " = ? AND " PASSWORD " = ?";
+        QString st = "SELECT " STATUS " FROM " USERS_TABLE " WHERE " LOGIN " = ? AND " PASSWORD " = ?";
 
         QVariantList values;
         values.append(QVariant(loginInput->text()));
@@ -56,7 +56,8 @@ void LoginUser::onEnterButtonClicked() {
         QSqlQuery query =db->execPreparedQuery(st, values);
 
         if (query.next()) {
-            emit loginSuccessful(loginInput->text());
+            std::string status = query.value(0).toString().toStdString();
+            emit loginSuccessful(loginInput->text(), status);
         } else {
             qDebug() << "Login failed";
         }

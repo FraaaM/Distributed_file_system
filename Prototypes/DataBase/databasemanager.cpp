@@ -5,14 +5,13 @@
 #include <QDir>
 #include <QCoreApplication>
 
+#include "databasemanager.hpp"
 #include "database.hpp"
-#include "usersdatabase.hpp"
-#include "filesdatabase.hpp"
 
 
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
     QDir dir = QCoreApplication::applicationDirPath();
-    QString dbPath = dir.absoluteFilePath("../../DataBaseFiles/database.db");
+    QString dbPath = dir.absoluteFilePath("database.db");
 
     db = QSqlDatabase::addDatabase("QSQLITE");
     db.setDatabaseName(dbPath);

@@ -7,9 +7,9 @@
 #include "filemanager.hpp"
 #include "registeruser.hpp"
 #include "admininterface.hpp"
-#include "database.hpp"
+#include "databasemanager.hpp"
 #include "usersdatabase.hpp"
-#include "filesdatabase.hpp"
+#include "database.hpp"
 
 
 class MainWindow: public QWidget{
@@ -17,21 +17,20 @@ class MainWindow: public QWidget{
 
 private:
     QStackedWidget *stackedWidget;
-
-    // DatabaseManager filesDatabase;
     LoginUser *loginWidget;
     FileManager *mainWidget;
     RegisterUser *registrationWidget;
-    AdminInterface *AdminInterfaceWidget;
+    AdminInterface *adminInterfaceWidget;
 
 public:
     MainWindow(QWidget* parent = nullptr);
-    // ~MainWindow();
+
 private slots:
-    void onLoginSuccessful(const QString& login);
+    void onLoginSuccessful(const QString& login, std::string status);
     void onRegistrationSuccessful(const QString& login);
     void onSwitchToLoginWindow();
     void onSwitchToMainWindow();
+    void onSwitchToAdminWindow();
     void onSwitchToRegistrationWindow();
 };
 

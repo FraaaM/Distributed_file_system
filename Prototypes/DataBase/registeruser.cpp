@@ -11,7 +11,7 @@
 
 
 #include "registeruser.hpp"
-#include "usersdatabase.hpp"
+#include "database.hpp"
 
 
 RegisterUser::RegisterUser(DatabaseManager *manager, QWidget *parent) : QWidget(parent), db(manager) {

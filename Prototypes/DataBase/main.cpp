@@ -2,7 +2,7 @@
 
 
 #include "mainwindow.hpp"
-#include "database.hpp"
+#include "databasemanager.hpp"
 
 int main(int argc, char *argv[]) {
 	QApplication app(argc, argv);

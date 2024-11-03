@@ -7,7 +7,7 @@
 #include <QLineEdit>
 #include <QSqlQueryModel>
 
-#include "database.hpp"
+#include "databasemanager.hpp"
 
 class FileManager : public QWidget {
 	Q_OBJECT
@@ -34,6 +34,5 @@ class FileManager : public QWidget {
 
 	private:
         void setupUI();
-        void setupDatabase();
         void updateTable();
 };

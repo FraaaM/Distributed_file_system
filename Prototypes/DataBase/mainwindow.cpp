@@ -2,8 +2,6 @@
 
 
 #include "mainwindow.hpp"
-#include "usersdatabase.hpp"
-#include "filesdatabase.hpp"
 
 MainWindow::MainWindow(QWidget *parent)
     : QWidget{parent}
@@ -14,13 +12,13 @@ MainWindow::MainWindow(QWidget *parent)
     loginWidget = new LoginUser(usersDatabase, this);
     mainWidget = new FileManager(usersDatabase, this);
     registrationWidget = new RegisterUser(usersDatabase, this);
-    AdminInterfaceWidget = new AdminInterface(usersDatabase, this);
+    adminInterfaceWidget = new AdminInterface(usersDatabase, this);
 
 
     stackedWidget->addWidget(loginWidget);
     stackedWidget->addWidget(mainWidget);
     stackedWidget->addWidget(registrationWidget);
-    stackedWidget->addWidget(AdminInterfaceWidget);
+    stackedWidget->addWidget(adminInterfaceWidget);
 
     stackedWidget->setCurrentWidget(loginWidget);
 
@@ -34,12 +32,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(registrationWidget, &RegisterUser::registrationSuccessful, this, &MainWindow::onRegistrationSuccessful);
     connect(registrationWidget, &RegisterUser::showLoginWindow, this, &MainWindow::onSwitchToLoginWindow);
 
-
 }
 
-void MainWindow::onLoginSuccessful(const QString& login) {
+void MainWindow::onLoginSuccessful(const QString& login, std::string status) {
     // mainWidget->setCurrentLogin(login);
-    onSwitchToMainWindow();
+    if(status == "user")
+        onSwitchToMainWindow();
+    else if(status == "admin"){
+        onSwitchToAdminWindow();
+    }
 }
 
 void MainWindow::onRegistrationSuccessful(const QString& login) {
@@ -53,6 +54,11 @@ void MainWindow::onSwitchToLoginWindow() {
 
 void MainWindow::onSwitchToMainWindow() {
     stackedWidget->setCurrentWidget(mainWidget);
+    resize(600, 600);
+}
+void MainWindow::onSwitchToAdminWindow() {
+    stackedWidget->setCurrentWidget(adminInterfaceWidget);
+    resize(600, 600);
 }
 
 void MainWindow::onSwitchToRegistrationWindow() {

@@ -14,8 +14,8 @@
 #include <filesystem>
 
 #include "filemanager.hpp"
-#include "filesdatabase.hpp"
 #include "database.hpp"
+#include "databasemanager.hpp"
 
 
 
@@ -40,6 +40,8 @@ void FileManager::setupUI() {
 
     tableView = new QTableView(this);
     tableView->setSortingEnabled(true);
+    tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
     model = new QSqlQueryModel(this);
 
     QSortFilterProxyModel* proxyModel = new QSortFilterProxyModel(this);
@@ -74,7 +76,6 @@ void FileManager::setupUI() {
 
     setLayout(layout);
     setWindowTitle("File Manager");
-    resize(500, 400);
 }
 void FileManager::addFile() {
     QString filePath = QFileDialog::getOpenFileName(this, "Select File" , "" , "All Files (*)");
@@ -91,7 +92,12 @@ void FileManager::addFile() {
     QString fileName = QFileInfo(filePath).fileName();
 
     QDir dir = QCoreApplication::applicationDirPath();
-    QString backupFolder = dir.absoluteFilePath("../../Backup/");
+    QString backupFolder = dir.absoluteFilePath("Backup/");
+
+    if(!std::filesystem::exists(backupFolder.toStdString())){
+        std::filesystem::create_directory(backupFolder.toStdString());
+    }
+
     if(!std::filesystem::exists(backupFolder.toStdString())){
         QMessageBox::critical(this, "Error" , "Doesn't exist backup folder!");
         return;
@@ -127,12 +133,7 @@ void FileManager::addFile() {
     values.append(QVariant(isPrivate));
 
     QSqlQuery query = db->execPreparedQuery(request, values);
-
-    // if (!query.exec()) {
-    //     qDebug() << "Error inserting into table:" << query.lastError().text();
-    // } else {
-        updateTable();
-    // }
+    updateTable();
 }
 
 void FileManager::downloadFile(){
@@ -149,11 +150,6 @@ void FileManager::downloadFile(){
     QVariantList values;
     values.append(QVariant(fieId));
     QSqlQuery query = db->execPreparedQuery(request, values);
-
-    // if (!query.exec()) {
-    //     qDebug() << "Error retrieving file:" << query.lastError().text();
-    //     return;
-    // }
 
     if (query.next()) {
         QString fileName = query.value(0).toString();
@@ -190,7 +186,7 @@ void FileManager::removeFile(){
     QVariantList values;
     values.append(QVariant(field));
     QSqlQuery query = db->execPreparedQuery(request, values);
-    // qDebug() << field;
+
     while(query.next()){
         const std::filesystem::path backupPath = query.value(0).toString().toStdString();
         std::filesystem::remove(backupPath);
@@ -200,13 +196,6 @@ void FileManager::removeFile(){
     request = "DELETE FROM " FILES_TABLE " WHERE " ID " = ?";
     values.append(QVariant(field));
     query = db->execPreparedQuery(request, values);
-
-    // if (!query.exec()) {
-    //     qDebug() << "Error remove of file:" << query.lastError().text();
-    //     return;
-    // }else{
-
-    // }
 
     updateTable();
 
@@ -224,7 +213,7 @@ void FileManager::findFiles(){
             qDebug() << "Error find of file:" << query.lastError().text();
             return;
         }
-        model->setQuery(query);
+        model->setQuery(std::move(query));
     }else{
         model->setQuery("SELECT " ID " , " FILE_NAME " , " FILE_SIZE " , " UPLOAD_DATE " FROM " FILES_TABLE);
     }

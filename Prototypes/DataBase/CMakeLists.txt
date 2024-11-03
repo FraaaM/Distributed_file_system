@@ -21,15 +21,15 @@ set(PROJECT_SOURCES
         registeruser.hpp registeruser.cpp
         admininterface.hpp admininterface.cpp
         mainwindow.hpp mainwindow.cpp
-        usersdatabase.hpp
-        filesdatabase.hpp
+
+		database.hpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(DataBase
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-		database.hpp database.cpp
+		databasemanager.hpp databasemanager.cpp
 
     )
 else()
