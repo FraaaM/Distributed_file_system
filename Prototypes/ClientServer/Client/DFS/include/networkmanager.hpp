@@ -11,11 +11,15 @@ namespace SHIZ {
 	private:
 		QTcpSocket* tcpSocket;
 		QTimer* reconnectTimer;
+		QString host;
 
 	public:
 		NetworkManager(QObject* parent = nullptr);
 		~NetworkManager();
 
+		void setHost(const QString& initialhost);
+		QString getHost();
+		bool sendConnectionRequest (const QString& host);
 		bool downloadFile(const QString& fileName);
 		QStringList requestFileList();
 		bool sendLoginRequest(const QString& login, const QString& password);

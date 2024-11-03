@@ -1,5 +1,6 @@
 #include <QFile>
 #include <QFileInfo>
+#include <QDebug>
 
 #include "networkmanager.hpp"
 
@@ -21,6 +22,13 @@ namespace SHIZ {
 		}
 	}
 
+	void NetworkManager::setHost(const QString& initialhost){
+		NetworkManager::host = initialhost;
+	}
+
+	QString NetworkManager::getHost() {
+		return NetworkManager::host;
+	}
 
 	bool NetworkManager::downloadFile(const QString& fileName){
 		QString downloadRequest = "DOWNLOAD:" + fileName;
@@ -60,9 +68,21 @@ namespace SHIZ {
 		return QStringList();
 	}
 
+	bool NetworkManager::sendConnectionRequest (const QString& host) {
+		if (tcpSocket->state() == QTcpSocket::UnconnectedState) {
+			tcpSocket->connectToHost(host, 1234);
+		}
+
+		if (tcpSocket->waitForConnected(3000)) {
+			return true;
+		}
+
+		return false;
+	}
+
 	bool NetworkManager::sendLoginRequest(const QString& login, const QString& password) {
 		if (tcpSocket->state() == QTcpSocket::UnconnectedState) {
-			tcpSocket->connectToHost("127.0.0.1", 1234);
+			qDebug() << "Failed to connect to server";
 		}
 
 		if (tcpSocket->waitForConnected(3000)) {
@@ -81,7 +101,7 @@ namespace SHIZ {
 
 	bool NetworkManager::sendRegistrationRequest(const QString& login, const QString& password) {
 		if (tcpSocket->state() == QTcpSocket::UnconnectedState) {
-			tcpSocket->connectToHost("127.0.0.1", 1234);
+			qDebug() << "Failed to connect to server";
 		}
 
 		if (tcpSocket->waitForConnected(3000)) {
@@ -119,7 +139,6 @@ namespace SHIZ {
 		return false;
 	}
 
-
 	void NetworkManager::onConnected() {
 		qDebug() << "Connected to server.";
 		reconnectTimer->stop();
@@ -131,8 +150,8 @@ namespace SHIZ {
 	}
 
 	void NetworkManager::onReconnectToServer() {
-		if (tcpSocket->state() == QTcpSocket::UnconnectedState) {
-			tcpSocket->connectToHost("127.0.0.1", 1234);
+		if (tcpSocket->state() == QTcpSocket::UnconnectedState || !NetworkManager::host.isEmpty()) {
+			tcpSocket->connectToHost(NetworkManager::host, 1234);
 		}
 	}
 }

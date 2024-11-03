@@ -29,7 +29,7 @@ namespace SHIZ{
 		downloadButton = new QPushButton("Download File", this);
 		layout->addWidget(downloadButton);
 
-        logoutButton = new QPushButton("Log Out", this);
+		logoutButton = new QPushButton("Log Out", this);
         layout->addWidget(logoutButton);
 
 

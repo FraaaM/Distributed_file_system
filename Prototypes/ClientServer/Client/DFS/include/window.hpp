@@ -2,6 +2,7 @@
 
 #include <QStackedWidget>
 
+#include "connectionwidget.hpp"
 #include "loginwidget.hpp"
 #include "mainwidget.hpp"
 #include "networkmanager.hpp"
@@ -16,6 +17,7 @@ namespace SHIZ{
 
 			QStackedWidget *stackedWidget;
 
+			ConnectionWidget *connectionWidget;
 			LoginWidget *loginWidget;
 			MainWidget *mainWidget;
 			RegistrationWidget *registrationWidget;
@@ -24,6 +26,7 @@ namespace SHIZ{
 			Window(NetworkManager* networkManager, QWidget* parent = nullptr);
 
 		private slots:
+			void onConnectionSuccessful (const QString &host);
 			void onLoginSuccessful(const QString& login);
 			void onRegistrationSuccessful(const QString& login);
 			void onSwitchToLoginWindow();
