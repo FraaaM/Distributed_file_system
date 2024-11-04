@@ -55,7 +55,7 @@ namespace SHIZ {
 		}
 
 		qint64 totalReceived = 0;
-		const qint64 chunkSize = 4096;
+		const qint64 chunkSize = 1024;
 		QByteArray chunk;
 
 		while (totalReceived < fileSize) {
@@ -156,7 +156,7 @@ namespace SHIZ {
 			return false;
 		}
 
-		const qint64 chunkSize = 4096;
+		const qint64 chunkSize = 1024;
 		while (!file.atEnd()) {
 			QByteArray buffer = file.read(chunkSize);
 			out << buffer;

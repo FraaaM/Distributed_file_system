@@ -73,7 +73,7 @@ namespace SHIZ{
 			return;
 		}
 
-		const qint64 chunkSize = 4096;
+		const qint64 chunkSize = 1024;
 		qint64 bytesSent = 0;
 
 		while (bytesSent < fileSize) {
