@@ -1,10 +1,10 @@
+#include <QApplication>
 #include <QLabel>
 #include <QVBoxLayout>
 
 #include "connectionwidget.hpp"
 
 namespace SHIZ {
-
 	ConnectionWidget::ConnectionWidget(NetworkManager* manager, QWidget* parent)
 		: networkManager(manager), QWidget(parent)
 	{
@@ -18,24 +18,41 @@ namespace SHIZ {
 		hostInput->setText("127.0.0.1");
 		layout->addWidget(hostInput);
 
-		enterButton = new QPushButton("Enter", this);
+		portInput = new QLineEdit(this);
+		portInput->setPlaceholderText("1234");
+		portInput->setText("1234");
+		layout->addWidget(portInput);
+
+		enterButton = new QPushButton("Connect", this);
 		layout->addWidget(enterButton);
 		connect(enterButton, &QPushButton::clicked, this, &ConnectionWidget::onEnterButtonClicked);
+
+		quitButton = new QPushButton("Quit", this);
+		layout->addWidget(quitButton);
+		connect(quitButton, &QPushButton::clicked, QCoreApplication::instance(), &QApplication::quit);
 
 		resize(400,300);
 		setLayout(layout);
 	}
 
 	void ConnectionWidget::onEnterButtonClicked() {
-		if (!hostInput->text().isEmpty()) {
-			bool success = networkManager->sendConnectionRequest(hostInput->text());
+		QString host = hostInput->text();
+		bool ok;
+		quint16 port = portInput->text().toUShort(&ok);
+
+		if (!host.isEmpty() && ok) {
+			bool success = networkManager->connectToHost(host, port);
 
 			if (success) {
-				networkManager->setHost(hostInput->text());
-				emit ConnectionSuccessful(hostInput->text());
+				networkManager->setHostAndPort(host, port);
+				emit ConnectionSuccessful(host, port);
 			} else {
 				qDebug() << "Failed to connect to server";
 			}
+		} else {
+			qDebug() << "Invalid host or port";
 		}
 	}
+
+
 }

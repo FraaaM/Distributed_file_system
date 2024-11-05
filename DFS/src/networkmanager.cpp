@@ -4,15 +4,15 @@
 #include "networkmanager.hpp"
 
 namespace SHIZ {
-	NetworkManager::NetworkManager(QObject* parent) : QObject(parent) {
+	NetworkManager::NetworkManager(QObject* parent)
+		: QObject(parent), host(""), port(1234)
+	{
 		tcpSocket = new QTcpSocket(this);
 		reconnectTimer = new QTimer(this);
 
 		connect(tcpSocket, &QTcpSocket::connected, this, &NetworkManager::onConnected);
 		connect(tcpSocket, &QTcpSocket::disconnected, this, &NetworkManager::onDisconnected);
 		connect(reconnectTimer, &QTimer::timeout, this, &NetworkManager::onReconnectToServer);
-
-		onReconnectToServer();
 	}
 
 	NetworkManager::~NetworkManager() {
@@ -21,6 +21,21 @@ namespace SHIZ {
 		}
 	}
 
+
+	bool NetworkManager::connectToHost(const QString& host, quint16 port) {
+		this->host = host;
+		this->port = port;
+		tcpSocket->connectToHost(host, port);
+		return tcpSocket->waitForConnected(3000);
+	}
+
+	void NetworkManager::disconnectFromHost() {
+		if (tcpSocket->isOpen()) {
+			tcpSocket->disconnectFromHost();
+		}
+		reconnectTimer->stop();
+		qDebug() << "Disconnected from server and stopped reconnect attempts.";
+	}
 
 	bool NetworkManager::downloadFile(const QString& fileName) {
 		QDataStream out(tcpSocket);
@@ -127,6 +142,11 @@ namespace SHIZ {
 		return false;
 	}
 
+	void NetworkManager::setHostAndPort(const QString& host, quint16 port) {
+		this->host = host;
+		this->port = port;
+	}
+
 	bool NetworkManager::uploadFile(const QString& filePath, const QString& owner) {
 		QFile file(filePath);
 		if (!file.open(QIODevice::ReadOnly)) {
@@ -198,8 +218,9 @@ namespace SHIZ {
 	}
 
 	void NetworkManager::onReconnectToServer() {
-		if (tcpSocket->state() == QTcpSocket::UnconnectedState) {
-			tcpSocket->connectToHost("127.0.0.1", 1234);
+		if (host.isEmpty() || tcpSocket->state() != QTcpSocket::UnconnectedState) {
+			return;
 		}
+		tcpSocket->connectToHost(host, port);
 	}
 }

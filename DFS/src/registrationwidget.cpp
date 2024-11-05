@@ -5,8 +5,8 @@
 
 namespace SHIZ{
 	RegistrationWidget::RegistrationWidget(NetworkManager* manager, QWidget* parent)
-		: networkManager(manager), QWidget(parent) {
-
+		: networkManager(manager), QWidget(parent)
+	{
 		QVBoxLayout* layout = new QVBoxLayout(this);
 
 
@@ -39,11 +39,24 @@ namespace SHIZ{
 		loginButton = new QPushButton("Login", this);
 		layout->addWidget(loginButton);
 
+		disconnectButton = new QPushButton("Disconnect", this);
+		layout->addWidget(disconnectButton);
+
 
 		connect(enterButton, &QPushButton::clicked, this, &RegistrationWidget::onEnterButtonClicked);
 		connect(loginButton, &QPushButton::clicked, this, &RegistrationWidget::onLoginButtonClicked);
+		connect(disconnectButton, &QPushButton::clicked, this, &RegistrationWidget::onDisconnectButtonClicked);
 	}
 
+
+	void RegistrationWidget::onDisconnectButtonClicked() {
+		networkManager->disconnectFromHost();
+		loginInput->clear();
+		passwordInput->clear();
+		confirmPasswordInput->clear();
+
+		emit showConnectionWindow();
+	}
 
 	void RegistrationWidget::onEnterButtonClicked() {
 		if (!(loginInput->text().isEmpty() || passwordInput->text().isEmpty())
@@ -52,6 +65,10 @@ namespace SHIZ{
 			bool success = networkManager->sendRegistrationRequest(loginInput->text(), passwordInput->text());
 
 			if (success) {
+				loginInput->clear();
+				passwordInput->clear();
+				confirmPasswordInput->clear();
+
 				emit registrationSuccessful(loginInput->text());
 			} else {
 				qDebug() << "Registration failed";

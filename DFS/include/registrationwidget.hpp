@@ -12,21 +12,24 @@ namespace SHIZ{
 		private:
 			NetworkManager* networkManager;
 
-			QLineEdit *loginInput;
-			QLineEdit *passwordInput;
-			QLineEdit *confirmPasswordInput;
+			QLineEdit* loginInput;
+			QLineEdit* passwordInput;
+			QLineEdit* confirmPasswordInput;
 
-			QPushButton *enterButton;
-			QPushButton *loginButton;
+			QPushButton* enterButton;
+			QPushButton* loginButton;
+			QPushButton* disconnectButton;
 
 		public:
 			RegistrationWidget(NetworkManager* manager, QWidget* parent = nullptr);
 
 		signals:
 			void registrationSuccessful(const QString& login);
+			void showConnectionWindow();
 			void showLoginWindow();
 
 		private slots:
+			void onDisconnectButtonClicked();
 			void onEnterButtonClicked();
 			void onLoginButtonClicked();
 	};

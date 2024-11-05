@@ -12,17 +12,20 @@ namespace SHIZ{
 		private:
 			NetworkManager* networkManager;
 
-			QLineEdit *hostInput;
-			QPushButton *enterButton;
+			QLineEdit* hostInput;
+			QLineEdit* portInput;
+
+			QPushButton* enterButton;
+			QPushButton* quitButton;
 
 		public:
 			ConnectionWidget(NetworkManager* manager, QWidget* parent = nullptr);
 
 		signals:
-			void ConnectionSuccessful(const QString &host);
+			void ConnectionSuccessful(const QString &host, quint16 port);
 
 		private slots:
-		void onEnterButtonClicked();
+			void onEnterButtonClicked();
 	};
 
 }

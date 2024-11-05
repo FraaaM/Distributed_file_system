@@ -30,17 +30,32 @@ namespace SHIZ {
 		registrationButton = new QPushButton("Register", this);
 		layout->addWidget(registrationButton);
 
+		disconnectButton = new QPushButton("Disconnect", this);
+		layout->addWidget(disconnectButton);
+
 
 		connect(enterButton, &QPushButton::clicked, this, &LoginWidget::onEnterButtonClicked);
 		connect(registrationButton, &QPushButton::clicked, this, &LoginWidget::onRegisterButtonClicked);
+		connect(disconnectButton, &QPushButton::clicked, this, &LoginWidget::onDisconnectButtonClicked);
 	}
 
+
+	void LoginWidget::onDisconnectButtonClicked() {
+		networkManager->disconnectFromHost();
+		loginInput->clear();
+		passwordInput->clear();
+
+		emit showConnectionWindow();
+	}
 
 	void LoginWidget::onEnterButtonClicked(){
 		if (!loginInput->text().isEmpty()) {
 			bool success = networkManager->sendLoginRequest(loginInput->text(), passwordInput->text());
 
 			if (success) {
+				loginInput->clear();
+				passwordInput->clear();
+
 				emit loginSuccessful(loginInput->text());
 			} else {
 				qDebug() << "Login failed";

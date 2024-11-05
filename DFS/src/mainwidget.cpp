@@ -6,11 +6,10 @@
 #include "mainwidget.hpp"
 
 namespace SHIZ{
-	MainWidget::MainWidget(NetworkManager* manager, QWidget* parent):
-		networkManager(manager), QWidget(parent)
+	MainWidget::MainWidget(NetworkManager* manager, QWidget* parent)
+		: networkManager(manager), QWidget(parent)
 	{
 		QVBoxLayout* layout = new QVBoxLayout(this);
-
 
 		fileTableWidget = new QTableWidget(this);
 		fileTableWidget->setColumnCount(4);
@@ -29,10 +28,13 @@ namespace SHIZ{
 		downloadButton = new QPushButton("Download File", this);
 		layout->addWidget(downloadButton);
 
+		logoutButton = new QPushButton("Logout", this);
+		layout->addWidget(logoutButton);
 
 		connect(refreshButton, &QPushButton::clicked, this, &MainWidget::onRefreshButtonClicked);
 		connect(uploadButton, &QPushButton::clicked, this, &MainWidget::onUploadButtonClicked);
 		connect(downloadButton, &QPushButton::clicked, this, &MainWidget::onDownloadButtonClicked);
+		connect(logoutButton, &QPushButton::clicked, this, &MainWidget::onLogoutButtonClicked);
 	}
 
 
@@ -54,6 +56,12 @@ namespace SHIZ{
 		} else {
 			QMessageBox::warning(this, "Download", "No file selected.");
 		}
+	}
+
+	void MainWidget::onLogoutButtonClicked() {
+		fileTableWidget->setRowCount(0);
+
+		emit showLoginWindow();
 	}
 
 	void MainWidget::onRefreshButtonClicked(){
