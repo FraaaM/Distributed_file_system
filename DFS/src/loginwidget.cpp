@@ -1,4 +1,5 @@
 #include <QLabel>
+#include <QMessageBox>
 #include <QVBoxLayout>
 
 #include "loginwidget.hpp"
@@ -49,17 +50,19 @@ namespace SHIZ {
 	}
 
 	void LoginWidget::onEnterButtonClicked(){
-		if (!loginInput->text().isEmpty()) {
-			bool success = networkManager->sendLoginRequest(loginInput->text(), passwordInput->text());
+		QString login = loginInput->text();
+		QString password = passwordInput->text();
 
-			if (success) {
-				loginInput->clear();
-				passwordInput->clear();
+		if (login.isEmpty() || password.isEmpty()) {
+			QMessageBox::warning(this, "Login error", "Login and password fields cannot be empty.");
+			return;
+		}
 
-				emit loginSuccessful(loginInput->text());
-			} else {
-				qDebug() << "Login failed";
-			}
+		bool success = networkManager->sendLoginRequest(login, password);
+		if (success) {
+			loginInput->clear();
+			passwordInput->clear();
+			emit loginSuccessful(login);
 		}
 	}
 

@@ -1,4 +1,7 @@
+#include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDateTime>
+#include <QDir>
 #include <QFile>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -16,15 +19,24 @@ namespace SHIZ{
 		}
 
 		QSqlQuery query;
+
+		query.exec("CREATE TABLE IF NOT EXISTS users ("
+				   "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+				   "username TEXT UNIQUE, "
+				   "password TEXT)");
+
 		query.exec("CREATE TABLE IF NOT EXISTS files ("
 				   "id INTEGER PRIMARY KEY AUTOINCREMENT, "
 				   "filename TEXT, "
 				   "owner TEXT, "
 				   "size INTEGER, "
 				   "upload_date TEXT, "
-				   "data BLOB)");
-		query.exec("PRAGMA max_page_count = 2147483646;");
-		qDebug() << query.lastError();
+				   "filepath TEXT)");
+
+		QDir dir(QCoreApplication::applicationDirPath() + "/Uploaded_files");
+		if (!dir.exists()) {
+			dir.mkpath(".");
+		}
 	}
 
 
@@ -39,9 +51,41 @@ namespace SHIZ{
 	}
 
 
+	void MainServer::processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName) {
+		QSqlQuery query;
+		query.prepare("SELECT filepath FROM files WHERE filename = :filename");
+		query.bindValue(":filename", fileName);
+
+		QDataStream out(clientSocket);
+		if (query.exec() && query.next()) {
+			QString filePath = query.value("filepath").toString();
+
+			if (QFile::exists(filePath) && !QFile::remove(filePath)) {
+				qDebug() << "Failed to delete file from disk:" << filePath;
+				out << QString("DELETE_FAILED");
+				clientSocket->flush();
+				return;
+			}
+
+			query.prepare("DELETE FROM files WHERE filename = :filename");
+			query.bindValue(":filename", fileName);
+
+			if (query.exec()) {
+				out << QString("DELETE_SUCCESS");
+			} else {
+				qDebug() << "srgaaggr" << query.lastError();
+				out << QString("DELETE_FAILED");
+			}
+		} else {
+			qDebug() << "File not found in database or query failed:" << query.lastError();
+			out << QString("DELETE_FAILED");
+		}
+		clientSocket->flush();
+	}
+
 	void MainServer::processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName) {
 		QSqlQuery query;
-		query.prepare("SELECT data, size FROM files WHERE filename = :filename");
+		query.prepare("SELECT filepath, size FROM files WHERE filename = :filename");
 		query.bindValue(":filename", fileName);
 
 		if (!query.exec() || !query.next()) {
@@ -52,8 +96,19 @@ namespace SHIZ{
 			return;
 		}
 
-		QByteArray fileData = query.value("data").toByteArray();
+		QString filePath = query.value("filepath").toString();
 		qint64 fileSize = query.value("size").toLongLong();
+
+		QFile file(filePath);
+		if (!file.open(QIODevice::ReadOnly)) {
+			QDataStream out(clientSocket);
+			out << QString("DOWNLOAD_FAILED");
+			clientSocket->flush();
+			qDebug() << "Failed to open file for reading:" << file.errorString();
+			return;
+		}
+		QByteArray fileData = file.readAll();
+		file.close();
 
 		QDataStream out(clientSocket);
 		out << QString("DOWNLOAD_READY") << fileSize;
@@ -116,10 +171,23 @@ namespace SHIZ{
 		QString password = parts.value(2);
 
 		QDataStream out(clientSocket);
-		if (!username.isEmpty() && !password.isEmpty()) {
-			out << QString("SUCCESS");
+
+		QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
+
+		QSqlQuery query;
+		query.prepare("SELECT password FROM users WHERE username = :username");
+		query.bindValue(":username", username);
+
+		if (query.exec() && query.next()) {
+			QString storedPassword = query.value(0).toString();
+			if (storedPassword == hashedPassword) {
+				out << QString("LOGIN_SUCCESS");
+			} else {
+				out << QString("LOGIN_FAILED");
+			}
 		} else {
-			out << QString("FAILED");
+			out << QString("LOGIN_FAILED");
+			qDebug() << "Login failed: " << query.lastError();
 		}
 		clientSocket->flush();
 	}
@@ -129,16 +197,57 @@ namespace SHIZ{
 		QString password = parts.value(2);
 
 		QDataStream out(clientSocket);
-		if (!username.isEmpty() && !password.isEmpty()) {
-			out << QString("SUCCESS");
+
+		QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
+
+		QSqlQuery checkQuery;
+		checkQuery.prepare("SELECT id FROM users WHERE username = :username");
+		checkQuery.bindValue(":username", username);
+
+		if (checkQuery.exec() && checkQuery.next()) {
+			out << QString("REGISTER_USER_EXISTS");
+			qDebug() << "Registration failed: user already exists.";
 		} else {
-			out << QString("FAILED");
+			QSqlQuery insertQuery;
+			insertQuery.prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+			insertQuery.addBindValue(username);
+			insertQuery.addBindValue(hashedPassword);
+
+			if (insertQuery.exec()) {
+				out << QString("REGISTER_SUCCESS");
+			} else {
+				out << QString("REGISTER_FAILED");
+				qDebug() << "Registration failed: " << insertQuery.lastError();
+			}
 		}
 		clientSocket->flush();
 	}
 
 	void MainServer::processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize) {
 		QString uploadDate = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+		QString filePath = QCoreApplication::applicationDirPath() + "/Uploaded_files/" + fileName;
+
+		QSqlQuery checkQuery;
+		checkQuery.prepare("SELECT filepath  FROM files WHERE filename = :filename");
+		checkQuery.bindValue(":filename", fileName);
+
+		if (checkQuery.exec() && checkQuery.next()) {
+			QString existingFilePath = checkQuery.value("filepath").toString();
+			if (QFile::exists(existingFilePath)) {
+				QFile::remove(existingFilePath);
+			}
+
+			QSqlQuery deleteQuery;
+			deleteQuery.prepare("DELETE FROM files WHERE filename = :filename");
+			deleteQuery.bindValue(":filename", fileName);
+			if (!deleteQuery.exec()) {
+				qDebug() << "Error deleting an existing file:" << deleteQuery.lastError();
+				QDataStream out(clientSocket);
+				out << QString("UPLOAD_FAILED");
+				clientSocket->flush();
+				return;
+			}
+		}
 
 		QByteArray fileData;
 		qint64 totalReceived = 0;
@@ -167,13 +276,24 @@ namespace SHIZ{
 			}
 		}
 
+		QFile file(filePath);
+		if (file.open(QIODevice::WriteOnly)) {
+			file.write(fileData);
+			file.close();
+		} else {
+			qDebug() << "Failed to write file to disk:" << file.errorString();
+			out << QString("UPLOAD_FAILED");
+			clientSocket->flush();
+			return;
+		}
+
 		QSqlQuery query;
-		query.prepare("INSERT INTO files (filename, owner, size, upload_date, data) VALUES (?, ?, ?, ?, ?)");
+		query.prepare("INSERT INTO files (filename, owner, size, upload_date, filepath) VALUES (?, ?, ?, ?, ?)");
 		query.addBindValue(fileName);
 		query.addBindValue(owner);
 		query.addBindValue(fileSize);
 		query.addBindValue(uploadDate);
-		query.addBindValue(fileData);
+		query.addBindValue(filePath);
 
 		if (query.exec()) {
 			out << QString("UPLOAD_SUCCESS");
@@ -216,6 +336,10 @@ namespace SHIZ{
 			qint64 fileSize;
 			in >> fileName >> owner >> fileSize;
 			processUploadRequest(clientSocket, fileName, owner, fileSize);
+		} else if (command == "DELETE") {
+			QString fileName;
+			in >> fileName;
+			processDeleteFileRequest(clientSocket, fileName);
 		}
 	}
 

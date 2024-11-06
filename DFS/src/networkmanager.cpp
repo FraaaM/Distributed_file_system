@@ -1,5 +1,6 @@
 #include <QFile>
 #include <QFileInfo>
+#include <QMessageBox>
 
 #include "networkmanager.hpp"
 
@@ -37,8 +38,23 @@ namespace SHIZ {
 		qDebug() << "Disconnected from server and stopped reconnect attempts.";
 	}
 
-	bool NetworkManager::downloadFile(const QString& fileName) {
+	bool NetworkManager::deleteFile(const QString& fileName) {
 		QDataStream out(tcpSocket);
+		out << QString("DELETE") << fileName;
+		tcpSocket->flush();
+
+		if (tcpSocket->waitForReadyRead(3000)) {
+			QDataStream in(tcpSocket);
+			QString response;
+			in >> response;
+			return response == "DELETE_SUCCESS";
+		}
+		return false;
+	}
+
+	bool NetworkManager::downloadFile(const QString& filePath) {
+		QDataStream out(tcpSocket);
+		QString fileName = QFileInfo(filePath).fileName();
 		out << QString("DOWNLOAD") << fileName;
 		tcpSocket->flush();
 
@@ -63,7 +79,7 @@ namespace SHIZ {
 		out << QString("READY_TO_RECEIVE");
 		tcpSocket->flush();
 
-		QFile file(fileName);
+		QFile file(filePath);
 		if (!file.open(QIODevice::WriteOnly)) {
 			qDebug() << "Cannot open file for writing.";
 			return false;
@@ -121,13 +137,19 @@ namespace SHIZ {
 			QDataStream in(tcpSocket);
 			QString response;
 			in >> response;
-			return response == "SUCCESS";
-		}
 
+			if (response == "LOGIN_SUCCESS") {
+				return true;
+			} else {
+				QMessageBox::warning(nullptr, "Login error", "Incorrect username or password.");
+			}
+		} else {
+			QMessageBox::warning(nullptr, "Network error", "Failed to connect to the server.");
+		}
 		return false;
 	}
 
-	bool NetworkManager::sendRegistrationRequest(const QString& login, const QString& password) {
+	bool NetworkManager::sendRegistrationRequest(const QString& login, const QString& password, const QString& confirmPassword) {
 		QDataStream out(tcpSocket);
 		out << QString("REGISTER") << login << password;
 		tcpSocket->flush();
@@ -136,9 +158,18 @@ namespace SHIZ {
 			QDataStream in(tcpSocket);
 			QString response;
 			in >> response;
-			return response == "SUCCESS";
-		}
 
+			if (response == "REGISTER_SUCCESS") {
+				QMessageBox::information(nullptr, "Registration", "Registration was successful.");
+				return true;
+			} else if (response == "REGISTER_USER_EXISTS") {
+				QMessageBox::warning(nullptr, "Registration error", "A user with this username already exists.");
+			} else {
+				QMessageBox::warning(nullptr, "Registration error", "Such a user already exists or an error has occurred.");
+			}
+		} else {
+			QMessageBox::warning(nullptr, "Network error", "Failed to connect to the server.");
+		}
 		return false;
 	}
 
@@ -167,9 +198,29 @@ namespace SHIZ {
 			return false;
 		}
 
-		QString response;
 		QDataStream in(tcpSocket);
+		QString response;
 		in >> response;
+
+		if (response == "FILE_EXISTS") {
+			int userChoice = QMessageBox::question(nullptr, "File Exists",
+												   "File with this name already exists. Replace?",
+												   QMessageBox::Yes | QMessageBox::No);
+			if (userChoice == QMessageBox::No) {
+				out << QString("CANCEL");
+				tcpSocket->flush();
+				return false;
+			}
+
+			out << QString("REPLACE");
+			tcpSocket->flush();
+
+			if (!tcpSocket->waitForReadyRead(3000)) {
+				qDebug() << "Server did not respond after replace confirmation.";
+				return false;
+			}
+			in >> response;
+		}
 
 		if (response != "READY_FOR_DATA") {
 			qDebug() << "Server is not ready for data.";

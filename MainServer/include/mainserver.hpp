@@ -19,6 +19,7 @@ namespace SHIZ{
 			void incomingConnection(qintptr socketDescriptor) override;
 
 		private:
+			void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName);
 			void processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName);
 			void processFileListRequest(QTcpSocket* clientSocket);
 			void processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts);

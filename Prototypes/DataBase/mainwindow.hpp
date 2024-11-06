@@ -7,8 +7,6 @@
 #include "filemanager.hpp"
 #include "registeruser.hpp"
 #include "admininterface.hpp"
-#include "databasemanager.hpp"
-#include "usersdatabase.hpp"
 #include "database.hpp"
 
 

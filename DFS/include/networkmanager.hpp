@@ -21,10 +21,11 @@ namespace SHIZ {
 
 		bool connectToHost(const QString& host, quint16 port);
 		void disconnectFromHost();
-		bool downloadFile(const QString& fileName);
+		bool deleteFile(const QString& fileName);
+		bool downloadFile(const QString& filePath);
 		QStringList requestFileList();
 		bool sendLoginRequest(const QString& login, const QString& password);
-		bool sendRegistrationRequest(const QString& login, const QString& password);
+		bool sendRegistrationRequest(const QString& login, const QString& password, const QString& confirmPassword);
 		void setHostAndPort(const QString& host, quint16 port);
 		bool uploadFile(const QString& filePath, const QString& owner);
 

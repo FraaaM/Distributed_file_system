@@ -1,4 +1,5 @@
 #include <QLabel>
+#include <QMessageBox>
 #include <QVBoxLayout>
 
 #include "registrationwidget.hpp"
@@ -59,20 +60,26 @@ namespace SHIZ{
 	}
 
 	void RegistrationWidget::onEnterButtonClicked() {
-		if (!(loginInput->text().isEmpty() || passwordInput->text().isEmpty())
-			&& passwordInput->text() == confirmPasswordInput->text()) {
+		QString login = loginInput->text();
+		QString password = passwordInput->text();
+		QString confirmPassword = confirmPasswordInput->text();
 
-			bool success = networkManager->sendRegistrationRequest(loginInput->text(), passwordInput->text());
+		if (login.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+			QMessageBox::warning(this, "Registration error", "All fields must be filled in.");
+			return;
+		}
 
-			if (success) {
-				loginInput->clear();
-				passwordInput->clear();
-				confirmPasswordInput->clear();
+		if (password != confirmPassword) {
+			QMessageBox::warning(this, "Registration error", "Passwords don't match.");
+			return;
+		}
 
-				emit registrationSuccessful(loginInput->text());
-			} else {
-				qDebug() << "Registration failed";
-			}
+		bool success = networkManager->sendRegistrationRequest(login, password, confirmPassword);
+		if (success) {
+			loginInput->clear();
+			passwordInput->clear();
+			confirmPasswordInput->clear();
+			emit registrationSuccessful(login);
 		}
 	}
 
