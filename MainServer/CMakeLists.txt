@@ -17,6 +17,8 @@ include_directories(include)
 set(PROJECT_SOURCES
         main.cpp
         include/mainserver.hpp src/mainserver.cpp
+        include/servermacros.hpp
+
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

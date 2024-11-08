@@ -11,6 +11,10 @@ namespace SHIZ{
 	{
 		QVBoxLayout* layout = new QVBoxLayout(this);
 
+		statusLabel = new QLabel(this);
+		layout->addWidget(statusLabel);
+		connect(networkManager, &NetworkManager::statusMessage, this, &MainWidget::onStatusMessageReceived);
+
 		filterLineEdit = new QLineEdit(this);
 		filterLineEdit->setPlaceholderText("Filter by file name");
 		layout->addWidget(filterLineEdit);
@@ -119,6 +123,10 @@ namespace SHIZ{
 				fileTableWidget->setItem(i, 3, dateItem);
 			}
 		}
+	}
+
+	void MainWidget::onStatusMessageReceived(const QString& message) {
+		statusLabel->setText(message);
 	}
 
 	void MainWidget::onUploadButtonClicked(){

@@ -7,11 +7,12 @@
 #include <QSqlQuery>
 
 #include "mainserver.hpp"
+#include "servermacros.hpp"
 
-namespace SHIZ{
-	MainServer::MainServer(QObject* parent): QTcpServer(parent) {
-		dataBase = QSqlDatabase::addDatabase("QSQLITE");
-		dataBase.setDatabaseName("files.db");
+namespace SHIZ {
+	MainServer::MainServer(QObject* parent) : QTcpServer(parent) {
+		dataBase = QSqlDatabase::addDatabase(DATABASE_TYPE);
+		dataBase.setDatabaseName(DATABASE_NAME);
 
 		if (!dataBase.open()) {
 			qDebug() << "Failed to connect to database!";
@@ -20,20 +21,20 @@ namespace SHIZ{
 
 		QSqlQuery query;
 
-		query.exec("CREATE TABLE IF NOT EXISTS users ("
-				   "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-				   "username TEXT UNIQUE, "
-				   "password TEXT)");
+		query.exec("CREATE TABLE IF NOT EXISTS " TABLE_USERS " ("
+				   FIELD_USER_ID " INTEGER PRIMARY KEY AUTOINCREMENT, "
+				   FIELD_USER_USERNAME " TEXT UNIQUE, "
+				   FIELD_USER_PASSWORD " TEXT)");
 
-		query.exec("CREATE TABLE IF NOT EXISTS files ("
-				   "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-				   "filename TEXT, "
-				   "owner TEXT, "
-				   "size INTEGER, "
-				   "upload_date TEXT, "
-				   "filepath TEXT)");
+		query.exec("CREATE TABLE IF NOT EXISTS " TABLE_FILES " ("
+				   FIELD_FILE_ID " INTEGER PRIMARY KEY AUTOINCREMENT, "
+				   FIELD_FILE_FILENAME " TEXT, "
+				   FIELD_FILE_OWNER " TEXT, "
+				   FIELD_FILE_SIZE " INTEGER, "
+				   FIELD_FILE_UPLOAD_DATE " TEXT, "
+				   FIELD_FILE_PATH " TEXT)");
 
-		QDir dir(QCoreApplication::applicationDirPath() + "/Uploaded_files");
+		QDir dir(QCoreApplication::applicationDirPath() + UPLOAD_DIRECTORY);
 		if (!dir.exists()) {
 			dir.mkpath(".");
 		}
@@ -53,65 +54,64 @@ namespace SHIZ{
 
 	void MainServer::processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName) {
 		QSqlQuery query;
-		query.prepare("SELECT filepath FROM files WHERE filename = :filename");
+		query.prepare("SELECT " FIELD_FILE_PATH " FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
 		query.bindValue(":filename", fileName);
 
 		QDataStream out(clientSocket);
 		if (query.exec() && query.next()) {
-			QString filePath = query.value("filepath").toString();
+			QString filePath = query.value(FIELD_FILE_PATH).toString();
 
 			if (QFile::exists(filePath) && !QFile::remove(filePath)) {
 				qDebug() << "Failed to delete file from disk:" << filePath;
-				out << QString("DELETE_FAILED");
+				out << QString(RESPONSE_DELETE_FAILED);
 				clientSocket->flush();
 				return;
 			}
 
-			query.prepare("DELETE FROM files WHERE filename = :filename");
+			query.prepare("DELETE FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
 			query.bindValue(":filename", fileName);
 
 			if (query.exec()) {
-				out << QString("DELETE_SUCCESS");
+				out << QString(RESPONSE_DELETE_SUCCESS);
 			} else {
-				qDebug() << "srgaaggr" << query.lastError();
-				out << QString("DELETE_FAILED");
+				qDebug() << "Failed to delete file from database:" << query.lastError();
+				out << QString(RESPONSE_DELETE_FAILED);
 			}
 		} else {
 			qDebug() << "File not found in database or query failed:" << query.lastError();
-			out << QString("DELETE_FAILED");
+			out << QString(RESPONSE_DELETE_FAILED);
 		}
 		clientSocket->flush();
 	}
 
 	void MainServer::processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName) {
 		QSqlQuery query;
-		query.prepare("SELECT filepath, size FROM files WHERE filename = :filename");
+		query.prepare("SELECT " FIELD_FILE_PATH ", " FIELD_FILE_SIZE " FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
 		query.bindValue(":filename", fileName);
 
+		QDataStream out(clientSocket);
 		if (!query.exec() || !query.next()) {
-			QDataStream out(clientSocket);
-			out << QString("DOWNLOAD_FAILED");
+			out << QString(RESPONSE_DOWNLOAD_FAILED);
 			clientSocket->flush();
 			qDebug() << "File not found in database or query failed.";
 			return;
 		}
 
-		QString filePath = query.value("filepath").toString();
-		qint64 fileSize = query.value("size").toLongLong();
+		QString filePath = query.value(FIELD_FILE_PATH).toString();
+		qint64 fileSize = query.value(FIELD_FILE_SIZE).toLongLong();
 
 		QFile file(filePath);
 		if (!file.open(QIODevice::ReadOnly)) {
-			QDataStream out(clientSocket);
-			out << QString("DOWNLOAD_FAILED");
+			out << QString(RESPONSE_DOWNLOAD_FAILED);
 			clientSocket->flush();
 			qDebug() << "Failed to open file for reading:" << file.errorString();
 			return;
 		}
+
 		QByteArray fileData = file.readAll();
 		file.close();
 
-		QDataStream out(clientSocket);
-		out << QString("DOWNLOAD_READY") << fileSize;
+		out << QString(RESPONSE_DOWNLOAD_READY) << fileSize;
 		clientSocket->flush();
 
 		if (!clientSocket->waitForReadyRead(3000)) {
@@ -123,12 +123,12 @@ namespace SHIZ{
 		QString clientResponse;
 		in >> clientResponse;
 
-		if (clientResponse != "READY_TO_RECEIVE") {
+		if (clientResponse != RESPONSE_READY_FOR_DATA) {
 			qDebug() << "Client is not ready to receive file.";
 			return;
 		}
 
-		const qint64 chunkSize = 1024;
+		const qint64 chunkSize = CHUNK_SIZE;
 		qint64 bytesSent = 0;
 
 		while (bytesSent < fileSize) {
@@ -143,7 +143,7 @@ namespace SHIZ{
 			}
 
 			in >> clientResponse;
-			if (clientResponse != "CHUNK_RECEIVED") {
+			if (clientResponse != RESPONSE_CHUNK_RECEIVED) {
 				qDebug() << "Client did not acknowledge chunk.";
 				return;
 			}
@@ -152,7 +152,7 @@ namespace SHIZ{
 	}
 
 	void MainServer::processFileListRequest(QTcpSocket* clientSocket) {
-		QSqlQuery query("SELECT filename, owner, size, upload_date FROM files");
+		QSqlQuery query("SELECT " FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE " FROM " TABLE_FILES);
 		QStringList fileList;
 
 		while (query.next()) {
@@ -162,7 +162,7 @@ namespace SHIZ{
 		}
 
 		QDataStream out(clientSocket);
-		out << QString("FILES_LIST") << fileList;
+		out << QString(RESPONSE_FILES_LIST) << fileList;
 		clientSocket->flush();
 	}
 
@@ -175,18 +175,14 @@ namespace SHIZ{
 		QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
 
 		QSqlQuery query;
-		query.prepare("SELECT password FROM users WHERE username = :username");
+		query.prepare("SELECT " FIELD_USER_PASSWORD " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
 		query.bindValue(":username", username);
 
 		if (query.exec() && query.next()) {
 			QString storedPassword = query.value(0).toString();
-			if (storedPassword == hashedPassword) {
-				out << QString("LOGIN_SUCCESS");
-			} else {
-				out << QString("LOGIN_FAILED");
-			}
+			out << (storedPassword == hashedPassword ? QString(RESPONSE_LOGIN_SUCCESS) : QString(RESPONSE_LOGIN_FAILED));
 		} else {
-			out << QString("LOGIN_FAILED");
+			out << QString(RESPONSE_LOGIN_FAILED);
 			qDebug() << "Login failed: " << query.lastError();
 		}
 		clientSocket->flush();
@@ -201,49 +197,45 @@ namespace SHIZ{
 		QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
 
 		QSqlQuery checkQuery;
-		checkQuery.prepare("SELECT id FROM users WHERE username = :username");
+		checkQuery.prepare("SELECT " FIELD_USER_ID " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
 		checkQuery.bindValue(":username", username);
 
 		if (checkQuery.exec() && checkQuery.next()) {
-			out << QString("REGISTER_USER_EXISTS");
+			out << QString(RESPONSE_REGISTER_USER_EXISTS);
 			qDebug() << "Registration failed: user already exists.";
 		} else {
 			QSqlQuery insertQuery;
-			insertQuery.prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+			insertQuery.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ") VALUES (?, ?)");
 			insertQuery.addBindValue(username);
 			insertQuery.addBindValue(hashedPassword);
 
-			if (insertQuery.exec()) {
-				out << QString("REGISTER_SUCCESS");
-			} else {
-				out << QString("REGISTER_FAILED");
-				qDebug() << "Registration failed: " << insertQuery.lastError();
-			}
+			out << (insertQuery.exec() ? QString(RESPONSE_REGISTER_SUCCESS) : QString(RESPONSE_REGISTER_FAILED));
+			if (insertQuery.lastError().isValid()) qDebug() << "Registration failed: " << insertQuery.lastError();
 		}
 		clientSocket->flush();
 	}
 
 	void MainServer::processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize) {
 		QString uploadDate = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-		QString filePath = QCoreApplication::applicationDirPath() + "/Uploaded_files/" + fileName;
+		QString filePath = QCoreApplication::applicationDirPath() + UPLOAD_DIRECTORY "/" + fileName;
 
 		QSqlQuery checkQuery;
-		checkQuery.prepare("SELECT filepath  FROM files WHERE filename = :filename");
+		checkQuery.prepare("SELECT " FIELD_FILE_PATH " FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
 		checkQuery.bindValue(":filename", fileName);
 
 		if (checkQuery.exec() && checkQuery.next()) {
-			QString existingFilePath = checkQuery.value("filepath").toString();
+			QString existingFilePath = checkQuery.value(FIELD_FILE_PATH).toString();
 			if (QFile::exists(existingFilePath)) {
 				QFile::remove(existingFilePath);
 			}
 
 			QSqlQuery deleteQuery;
-			deleteQuery.prepare("DELETE FROM files WHERE filename = :filename");
+			deleteQuery.prepare("DELETE FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
 			deleteQuery.bindValue(":filename", fileName);
 			if (!deleteQuery.exec()) {
 				qDebug() << "Error deleting an existing file:" << deleteQuery.lastError();
 				QDataStream out(clientSocket);
-				out << QString("UPLOAD_FAILED");
+				out << QString(RESPONSE_UPLOAD_FAILED);
 				clientSocket->flush();
 				return;
 			}
@@ -253,7 +245,7 @@ namespace SHIZ{
 		qint64 totalReceived = 0;
 
 		QDataStream out(clientSocket);
-		out << QString("READY_FOR_DATA");
+		out << QString(RESPONSE_READY_FOR_DATA);
 		clientSocket->flush();
 
 		while (totalReceived < fileSize) {
@@ -268,7 +260,7 @@ namespace SHIZ{
 				fileData.append(chunk);
 				totalReceived += chunk.size();
 
-				out << QString("CHUNK_RECEIVED");
+				out << QString(RESPONSE_CHUNK_RECEIVED);
 				clientSocket->flush();
 			} else {
 				qDebug() << "No data received from client.";
@@ -282,25 +274,21 @@ namespace SHIZ{
 			file.close();
 		} else {
 			qDebug() << "Failed to write file to disk:" << file.errorString();
-			out << QString("UPLOAD_FAILED");
+			out << QString(RESPONSE_UPLOAD_FAILED);
 			clientSocket->flush();
 			return;
 		}
 
 		QSqlQuery query;
-		query.prepare("INSERT INTO files (filename, owner, size, upload_date, filepath) VALUES (?, ?, ?, ?, ?)");
+		query.prepare("INSERT INTO " TABLE_FILES " (" FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ", " FIELD_FILE_PATH ") VALUES (?, ?, ?, ?, ?)");
 		query.addBindValue(fileName);
 		query.addBindValue(owner);
 		query.addBindValue(fileSize);
 		query.addBindValue(uploadDate);
 		query.addBindValue(filePath);
 
-		if (query.exec()) {
-			out << QString("UPLOAD_SUCCESS");
-		} else {
-			qDebug() << query.lastError();
-			out << QString("UPLOAD_FAILED");
-		}
+		out << (query.exec() ? QString(RESPONSE_UPLOAD_SUCCESS) : QString(RESPONSE_UPLOAD_FAILED));
+		if (query.lastError().isValid()) qDebug() << query.lastError();
 		clientSocket->flush();
 	}
 
@@ -313,30 +301,30 @@ namespace SHIZ{
 		QString command;
 		in >> command;
 
-		if (command == "DOWNLOAD") {
+		if (command == COMMAND_DOWNLOAD) {
 			QString fileName;
 			in >> fileName;
 			processDownloadRequest(clientSocket, fileName);
-		} else if (command == "GET_FILES") {
+		} else if (command == COMMAND_GET_FILES) {
 			processFileListRequest(clientSocket);
-		} else if (command == "LOGIN") {
+		} else if (command == COMMAND_LOGIN) {
 			QStringList parts;
 			QString login, password;
 			in >> login >> password;
-			parts << "LOGIN" << login << password;
+			parts << COMMAND_LOGIN << login << password;
 			processLoginRequest(clientSocket, parts);
-		} else if (command == "REGISTER") {
+		} else if (command == COMMAND_REGISTER) {
 			QStringList parts;
 			QString login, password;
 			in >> login >> password;
-			parts << "REGISTER" << login << password;
+			parts << COMMAND_REGISTER << login << password;
 			processRegistrationRequest(clientSocket, parts);
-		} else if (command == "UPLOAD") {
+		} else if (command == COMMAND_UPLOAD) {
 			QString fileName, owner;
 			qint64 fileSize;
 			in >> fileName >> owner >> fileSize;
 			processUploadRequest(clientSocket, fileName, owner, fileSize);
-		} else if (command == "DELETE") {
+		} else if (command == COMMAND_DELETE) {
 			QString fileName;
 			in >> fileName;
 			processDeleteFileRequest(clientSocket, fileName);

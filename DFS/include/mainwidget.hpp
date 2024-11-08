@@ -2,6 +2,7 @@
 
 #include <QTableWidget>
 #include <QPushButton>
+#include <QLabel>
 #include <QLineEdit>
 
 #include "networkmanager.hpp"
@@ -14,6 +15,7 @@ namespace SHIZ{
 			NetworkManager* networkManager;
 			QString currentLogin;
 
+			QLabel* statusLabel;
 			QLineEdit* filterLineEdit;
 			QTableWidget* fileTableWidget;
 			QPushButton* refreshButton;
@@ -36,6 +38,7 @@ namespace SHIZ{
 			void onFilterTextChanged(const QString& text);
 			void onLogoutButtonClicked();
 			void onRefreshButtonClicked();
+			void onStatusMessageReceived(const QString& message);
 			void onUploadButtonClicked();
 	};
 }

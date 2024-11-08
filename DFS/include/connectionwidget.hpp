@@ -22,6 +22,7 @@ namespace SHIZ{
 			ConnectionWidget(NetworkManager* manager, QWidget* parent = nullptr);
 
 		signals:
+			void requestConnection(const QString &host, quint16 port);
 			void ConnectionSuccessful(const QString &host, quint16 port);
 
 		private slots:
