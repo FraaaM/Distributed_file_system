@@ -10,22 +10,20 @@
 #include "servermacros.hpp"
 
 namespace SHIZ {
-	MainServer::MainServer(QObject* parent) : QTcpServer(parent) {
+	MainServer::MainServer(Logger* logger, QObject* parent) : logger(logger), QTcpServer(parent) {
 		dataBase = QSqlDatabase::addDatabase(DATABASE_TYPE);
 		dataBase.setDatabaseName(DATABASE_NAME);
 
 		if (!dataBase.open()) {
-			qDebug() << "Failed to connect to database!";
+			logger->log("Failed to connect to database.");
 			return;
 		}
 
 		QSqlQuery query;
-
 		query.exec("CREATE TABLE IF NOT EXISTS " TABLE_USERS " ("
 				   FIELD_USER_ID " INTEGER PRIMARY KEY AUTOINCREMENT, "
 				   FIELD_USER_USERNAME " TEXT UNIQUE, "
 				   FIELD_USER_PASSWORD " TEXT)");
-
 		query.exec("CREATE TABLE IF NOT EXISTS " TABLE_FILES " ("
 				   FIELD_FILE_ID " INTEGER PRIMARY KEY AUTOINCREMENT, "
 				   FIELD_FILE_FILENAME " TEXT, "
@@ -38,6 +36,8 @@ namespace SHIZ {
 		if (!dir.exists()) {
 			dir.mkpath(".");
 		}
+
+		logger->log("Server initialized successfully.");
 	}
 
 
@@ -48,7 +48,7 @@ namespace SHIZ {
 		connect(clientSocket, &QTcpSocket::readyRead, this, &MainServer::handleClientData);
 		connect(clientSocket, &QTcpSocket::disconnected, this, &MainServer::handleClientDisconnected);
 
-		qDebug() << "New connection established";
+		logger->log("New connection established.");
 	}
 
 
@@ -62,7 +62,7 @@ namespace SHIZ {
 			QString filePath = query.value(FIELD_FILE_PATH).toString();
 
 			if (QFile::exists(filePath) && !QFile::remove(filePath)) {
-				qDebug() << "Failed to delete file from disk:" << filePath;
+				logger->log("Failed to delete file from disk:");
 				out << QString(RESPONSE_DELETE_FAILED);
 				clientSocket->flush();
 				return;
@@ -74,11 +74,11 @@ namespace SHIZ {
 			if (query.exec()) {
 				out << QString(RESPONSE_DELETE_SUCCESS);
 			} else {
-				qDebug() << "Failed to delete file from database:" << query.lastError();
+				logger->log("Failed to delete file from database:" + query.lastError().text());
 				out << QString(RESPONSE_DELETE_FAILED);
 			}
 		} else {
-			qDebug() << "File not found in database or query failed:" << query.lastError();
+			logger->log("File not found in database or query failed:" + query.lastError().text());
 			out << QString(RESPONSE_DELETE_FAILED);
 		}
 		clientSocket->flush();
@@ -93,7 +93,7 @@ namespace SHIZ {
 		if (!query.exec() || !query.next()) {
 			out << QString(RESPONSE_DOWNLOAD_FAILED);
 			clientSocket->flush();
-			qDebug() << "File not found in database or query failed.";
+			logger->log("File not found in database or query failed.");
 			return;
 		}
 
@@ -104,7 +104,7 @@ namespace SHIZ {
 		if (!file.open(QIODevice::ReadOnly)) {
 			out << QString(RESPONSE_DOWNLOAD_FAILED);
 			clientSocket->flush();
-			qDebug() << "Failed to open file for reading:" << file.errorString();
+			logger->log("Failed to open file for reading:" + file.errorString());
 			return;
 		}
 
@@ -115,7 +115,7 @@ namespace SHIZ {
 		clientSocket->flush();
 
 		if (!clientSocket->waitForReadyRead(3000)) {
-			qDebug() << "No response from client for download request.";
+			logger->log("No response from client for download request.");
 			return;
 		}
 
@@ -124,7 +124,7 @@ namespace SHIZ {
 		in >> clientResponse;
 
 		if (clientResponse != RESPONSE_READY_FOR_DATA) {
-			qDebug() << "Client is not ready to receive file.";
+			logger->log("Client is not ready to receive file.");
 			return;
 		}
 
@@ -138,17 +138,17 @@ namespace SHIZ {
 			bytesSent += chunk.size();
 
 			if (!clientSocket->waitForReadyRead(3000)) {
-				qDebug() << "No response from client after sending chunk.";
+				logger->log("No response from client after sending chunk.");
 				return;
 			}
 
 			in >> clientResponse;
 			if (clientResponse != RESPONSE_CHUNK_RECEIVED) {
-				qDebug() << "Client did not acknowledge chunk.";
+				logger->log("Client did not acknowledge chunk.");
 				return;
 			}
 		}
-		qDebug() << "File sent successfully:" << fileName;
+		logger->log("File sent successfully: " + fileName);
 	}
 
 	void MainServer::processFileListRequest(QTcpSocket* clientSocket) {
@@ -183,7 +183,7 @@ namespace SHIZ {
 			out << (storedPassword == hashedPassword ? QString(RESPONSE_LOGIN_SUCCESS) : QString(RESPONSE_LOGIN_FAILED));
 		} else {
 			out << QString(RESPONSE_LOGIN_FAILED);
-			qDebug() << "Login failed: " << query.lastError();
+			logger->log("Login failed: " + query.lastError().text());
 		}
 		clientSocket->flush();
 	}
@@ -202,7 +202,7 @@ namespace SHIZ {
 
 		if (checkQuery.exec() && checkQuery.next()) {
 			out << QString(RESPONSE_REGISTER_USER_EXISTS);
-			qDebug() << "Registration failed: user already exists.";
+			logger->log("Registration failed: user already exists.");
 		} else {
 			QSqlQuery insertQuery;
 			insertQuery.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ") VALUES (?, ?)");
@@ -233,7 +233,7 @@ namespace SHIZ {
 			deleteQuery.prepare("DELETE FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
 			deleteQuery.bindValue(":filename", fileName);
 			if (!deleteQuery.exec()) {
-				qDebug() << "Error deleting an existing file:" << deleteQuery.lastError();
+				logger->log("Error deleting an existing file:" + deleteQuery.lastError().text());
 				QDataStream out(clientSocket);
 				out << QString(RESPONSE_UPLOAD_FAILED);
 				clientSocket->flush();
@@ -254,7 +254,7 @@ namespace SHIZ {
 				QByteArray chunk;
 				in >> chunk;
 				if (chunk.isEmpty()) {
-					qDebug() << "Received empty chunk, ending upload.";
+					logger->log("Received empty chunk, ending upload.");
 					break;
 				}
 				fileData.append(chunk);
@@ -263,7 +263,7 @@ namespace SHIZ {
 				out << QString(RESPONSE_CHUNK_RECEIVED);
 				clientSocket->flush();
 			} else {
-				qDebug() << "No data received from client.";
+				logger->log("No data received from client.");
 				break;
 			}
 		}
@@ -273,7 +273,7 @@ namespace SHIZ {
 			file.write(fileData);
 			file.close();
 		} else {
-			qDebug() << "Failed to write file to disk:" << file.errorString();
+			logger->log("Failed to write file to disk:" + file.errorString());
 			out << QString(RESPONSE_UPLOAD_FAILED);
 			clientSocket->flush();
 			return;
@@ -290,6 +290,7 @@ namespace SHIZ {
 		out << (query.exec() ? QString(RESPONSE_UPLOAD_SUCCESS) : QString(RESPONSE_UPLOAD_FAILED));
 		if (query.lastError().isValid()) qDebug() << query.lastError();
 		clientSocket->flush();
+		logger->log("File received successfully: " + fileName);
 	}
 
 
@@ -334,7 +335,7 @@ namespace SHIZ {
 	void MainServer::handleClientDisconnected() {
 		QTcpSocket* clientSocket = qobject_cast<QTcpSocket*>(sender());
 		if (clientSocket) {
-			qDebug() << "Client disconnected";
+			logger->log("Client disconnected");
 			clientSocket->deleteLater();
 		}
 	}

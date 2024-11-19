@@ -5,8 +5,8 @@
 #include "loginwidget.hpp"
 
 namespace SHIZ {
-	LoginWidget::LoginWidget(NetworkManager* manager, QWidget* parent)
-		: networkManager(manager), QWidget(parent)
+	LoginWidget::LoginWidget(Logger* logger, NetworkManager* manager, QWidget* parent)
+		: logger(logger), networkManager(manager), QWidget(parent)
 	{
 		QVBoxLayout* layout = new QVBoxLayout(this);
 
@@ -63,6 +63,7 @@ namespace SHIZ {
 			loginInput->clear();
 			passwordInput->clear();
 			emit loginSuccessful(login);
+			logger->log("Login successful: " + login);
 		}
 	}
 

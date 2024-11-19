@@ -3,15 +3,15 @@
 #include "window.hpp"
 
 namespace SHIZ{
-	Window::Window(NetworkManager* networkManager, QWidget* parent)
-		: networkManager(networkManager), QWidget(parent)
+	Window::Window(Logger* logger, NetworkManager* networkManager, QWidget* parent)
+		: logger(logger), networkManager(networkManager), QWidget(parent)
 	{
 		stackedWidget = new QStackedWidget(this);
 
-		connectionWidget = new ConnectionWidget(networkManager, this);
-		loginWidget = new LoginWidget(networkManager, this);
-		mainWidget = new MainWidget(networkManager, this);
-		registrationWidget = new RegistrationWidget(networkManager, this);
+		connectionWidget = new ConnectionWidget(logger, networkManager, this);
+		loginWidget = new LoginWidget(logger, networkManager, this);
+		mainWidget = new MainWidget(logger, networkManager, this);
+		registrationWidget = new RegistrationWidget(logger, networkManager, this);
 
 		stackedWidget->addWidget(connectionWidget);
 		stackedWidget->addWidget(loginWidget);
@@ -39,7 +39,7 @@ namespace SHIZ{
 
 
 	void Window::onConnectionSuccessful(const QString& host, quint16 port){
-		qDebug() << "Current connection IP: " << host << " and port: " << port;
+		logger->log("Current connection IP: " + host + " and port: " + port);
 		onSwitchToLoginWindow();
 	}
 

@@ -6,8 +6,8 @@
 #include "networkmanager.hpp"
 
 namespace SHIZ {
-	NetworkManager::NetworkManager(QObject* parent)
-		: QObject(parent), host(""), port(DEFAULT_PORT)
+	NetworkManager::NetworkManager(Logger* logger, QObject* parent)
+		:logger(logger), QObject(parent), host(""), port(DEFAULT_PORT)
 	{
 		tcpSocket = new QTcpSocket(this);
 		reconnectTimer = new QTimer(this);
@@ -36,11 +36,13 @@ namespace SHIZ {
 			tcpSocket->disconnectFromHost();
 		}
 		reconnectTimer->stop();
-		qDebug() << "Disconnected from server and stopped reconnect attempts.";
+		logger->log("Disconnected from server and stopped reconnect attempts.");
 	}
 
 	bool NetworkManager::deleteFile(const QString& fileName) {
 		emit statusMessage("Requesting file deletion...");
+		logger->log("Requesting file deletion...");
+
 
 		QDataStream out(tcpSocket);
 		out << QString(COMMAND_DELETE) << fileName;
@@ -53,15 +55,18 @@ namespace SHIZ {
 
 			bool success = response == RESPONSE_DELETE_SUCCESS;
 			emit statusMessage(success ? "File deleted successfully." : "File deletion failed.");
+			logger->log(success ? "File deleted successfully." : "File deletion failed.");
 			return success;
 		}
 		emit statusMessage("Server response timed out.");
+		logger->log("Server response timed out.");
 		return false;
 	}
 
 	bool NetworkManager::downloadFile(const QString& filePath) {
 		QString fileName = QFileInfo(filePath).fileName();
 		emit statusMessage("Requesting file download: " + fileName);
+		logger->log("Requesting file download: " + fileName);
 
 		QDataStream out(tcpSocket);
 		out << QString(COMMAND_DOWNLOAD) << fileName;
@@ -69,7 +74,7 @@ namespace SHIZ {
 
 		if (!tcpSocket->waitForReadyRead(3000)) {
 			emit statusMessage("Server did not respond in time for download.");
-			qDebug() << "Server did not respond in time.";
+			logger->log("Server did not respond in time for download.");
 			return false;
 		}
 
@@ -80,14 +85,15 @@ namespace SHIZ {
 		in >> response;
 		if (response != RESPONSE_DOWNLOAD_READY) {
 			emit statusMessage("Server not ready for download.");
-			qDebug() << "Server is not ready to send the file.";
+			logger->log("Server not ready for download.");
 			return false;
 		}
 
 		in >> fileSize;
 		emit statusMessage("Downloading " + fileName +
 						   " (" + QString::number(fileSize) + " bytes)...");
-		qDebug() << "File size: " << fileSize << " file name: " << fileName;
+		logger->log("Downloading " + fileName +
+					" (" + QString::number(fileSize) + " bytes)...");
 
 		out << QString(RESPONSE_READY_FOR_DATA);
 		tcpSocket->flush();
@@ -95,7 +101,7 @@ namespace SHIZ {
 		QFile file(filePath);
 		if (!file.open(QIODevice::WriteOnly)) {
 			emit statusMessage("Failed to open file for writing.");
-			qDebug() << "Cannot open file for writing.";
+			logger->log("Failed to open file for writing.");
 			return false;
 		}
 
@@ -106,7 +112,7 @@ namespace SHIZ {
 		while (totalReceived < fileSize) {
 			if (!tcpSocket->waitForReadyRead(3000)) {
 				emit statusMessage("No response from server during download.");
-				qDebug() << "No response from server while downloading.";
+				logger->log("No response from server during download.");
 				file.close();
 				return false;
 			}
@@ -118,9 +124,9 @@ namespace SHIZ {
 			emit statusMessage("Downloading " + fileName + ": " +
 							   QString::number(totalReceived) + " of " +
 							   QString::number(fileSize) + " bytes received");
-			qDebug() << "Downloading " + fileName + ": " +
+			logger->log("Downloading " + fileName + ": " +
 						QString::number(totalReceived) + " of " +
-						QString::number(fileSize) + " bytes received";
+						QString::number(fileSize) + " bytes received");
 
 			out << QString(RESPONSE_CHUNK_RECEIVED);
 			tcpSocket->flush();
@@ -128,7 +134,7 @@ namespace SHIZ {
 
 		file.close();
 		emit statusMessage("Download complete: " + fileName);
-		qDebug() << "File downloaded successfully:" << fileName;
+		logger->log("Download complete: " + fileName);
 		return true;
 	}
 
@@ -205,14 +211,14 @@ namespace SHIZ {
 		QFile file(filePath);
 		if (!file.open(QIODevice::ReadOnly)) {
 			emit statusMessage("Cannot open file for reading.");
-			qDebug() << "Cannot open file for reading.";
+			logger->log("Cannot open file for reading.");
 			return false;
 		}
 
 		QString fileName = QFileInfo(filePath).fileName();
 		qint64 fileSize = file.size();
 		emit statusMessage("Uploading file: " + fileName);
-		qDebug() << "Uploading file:" << fileName << "Owner:" << owner << "Size:" << fileSize;
+		logger->log("Uploading file:" + fileName + "Owner:" + owner + "Size:" + QString::number(fileSize));
 
 		QDataStream out(tcpSocket);
 		out << QString(COMMAND_UPLOAD) << fileName << owner << fileSize;
@@ -220,7 +226,7 @@ namespace SHIZ {
 
 		if (!tcpSocket->waitForReadyRead(3000)) {
 			emit statusMessage("Server did not respond in time for upload.");
-			qDebug() << "Server did not respond in time.";
+			logger->log("Server did not respond in time for upload.");
 			return false;
 		}
 
@@ -230,7 +236,7 @@ namespace SHIZ {
 
 		if (response != RESPONSE_READY_FOR_DATA) {
 			emit statusMessage("Server is not ready for data.");
-			qDebug() << "Server is not ready for data.";
+			logger->log("Server is not ready for data.");
 			return false;
 		}
 
@@ -246,20 +252,20 @@ namespace SHIZ {
 			emit statusMessage("Uploading " + fileName + ": " +
 							   QString::number(totalSent) + " of " +
 							   QString::number(fileSize) + " bytes sent");
-			qDebug() << "Uploading " + fileName + ": " +
+			logger->log("Uploading " + fileName + ": " +
 						QString::number(totalSent) + " of " +
-						QString::number(fileSize) + " bytes sent";
+						QString::number(fileSize) + " bytes sent");
 
 			if (!tcpSocket->waitForReadyRead(3000)) {
 				emit statusMessage("No response from server during upload.");
-				qDebug() << "No response from server after sending chunk.";
+				logger->log("No response from server after sending chunk.");
 				return false;
 			}
 
 			in >> response;
 			if (response != RESPONSE_CHUNK_RECEIVED) {
 				emit statusMessage("Server did not acknowledge chunk.");
-				qDebug() << "Server did not acknowledge chunk.";
+				logger->log("Server did not acknowledge chunk.");
 				return false;
 			}
 		}
@@ -271,6 +277,7 @@ namespace SHIZ {
 			in >> response;
 			bool success = response == RESPONSE_UPLOAD_SUCCESS;
 			emit statusMessage(success ? "File uploaded successfully." : "File upload failed.");
+			logger->log(success ? "File uploaded successfully." : "File upload failed.");
 			return success;
 		}
 
@@ -280,13 +287,13 @@ namespace SHIZ {
 
 	void NetworkManager::onConnected() {
 		emit statusMessage("Connected to server.");
-		qDebug() << "Connected to server.";
+		logger->log("Connected to server.");
 		reconnectTimer->stop();
 	}
 
 	void NetworkManager::onDisconnected() {
 		emit statusMessage("Disconnected from server.");
-		qDebug() << "Disconnected from server. Reconnecting...";
+		logger->log("Disconnected from server. Reconnecting...");
 		reconnectTimer->start(RECONNECT_INTERVAL);
 	}
 

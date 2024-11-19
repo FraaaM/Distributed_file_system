@@ -20,8 +20,10 @@ namespace SHIZ{
 			QPushButton* loginButton;
 			QPushButton* disconnectButton;
 
+			Logger* logger;
+
 		public:
-			RegistrationWidget(NetworkManager* manager, QWidget* parent = nullptr);
+			RegistrationWidget(Logger* logger, NetworkManager* manager, QWidget* parent = nullptr);
 
 		signals:
 			void registrationSuccessful(const QString& login);

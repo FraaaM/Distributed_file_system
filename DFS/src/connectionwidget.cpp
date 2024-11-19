@@ -5,8 +5,8 @@
 #include "connectionwidget.hpp"
 
 namespace SHIZ {
-	ConnectionWidget::ConnectionWidget(NetworkManager* manager, QWidget* parent)
-		: networkManager(manager), QWidget(parent)
+	ConnectionWidget::ConnectionWidget(Logger* logger, NetworkManager* manager, QWidget* parent)
+		: logger(logger), networkManager(manager), QWidget(parent)
 	{
 		QVBoxLayout *layout = new QVBoxLayout(this);
 
@@ -47,12 +47,10 @@ namespace SHIZ {
 				networkManager->setHostAndPort(host, port);
 				emit ConnectionSuccessful(host, port);
 			} else {
-				qDebug() << "Failed to connect to server";
+				logger->log("Failed to connect to server");
 			}
 		} else {
-			qDebug() << "Invalid host or port";
+			logger->log("Invalid host or port");
 		}
 	}
-
-
 }

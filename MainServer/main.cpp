@@ -1,16 +1,18 @@
 #include <QApplication>
 
-#include "mainserver.hpp"
+#include "logger.hpp"
+#include "mainwindow.hpp"
 
 int main(int argc, char* argv[]) {
-	QCoreApplication app(argc, argv);
+	QApplication app(argc, argv);
 
-	SHIZ::MainServer server;
-	if (!server.listen(QHostAddress::Any, 1234)) {
-		qDebug() << "Server could not start!";
-		return 1;
-	}
+	SHIZ::Logger logger;
+	logger.log("Application started.");
 
-	qDebug() << "Server started on port" << server.serverPort();
-	return app.exec();
+	SHIZ::MainWindow mainWindow(&logger);
+	mainWindow.show();
+
+	int result = app.exec();
+	logger.log("Application exited.");
+	return result;
 }

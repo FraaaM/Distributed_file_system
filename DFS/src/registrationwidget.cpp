@@ -5,8 +5,8 @@
 #include "registrationwidget.hpp"
 
 namespace SHIZ{
-	RegistrationWidget::RegistrationWidget(NetworkManager* manager, QWidget* parent)
-		: networkManager(manager), QWidget(parent)
+	RegistrationWidget::RegistrationWidget(Logger* logger, NetworkManager* manager, QWidget* parent)
+		: logger(logger), networkManager(manager), QWidget(parent)
 	{
 		QVBoxLayout* layout = new QVBoxLayout(this);
 
@@ -80,6 +80,7 @@ namespace SHIZ{
 			passwordInput->clear();
 			confirmPasswordInput->clear();
 			emit registrationSuccessful(login);
+			logger->log("Registration Successful: " + login);
 		}
 	}
 

@@ -3,7 +3,8 @@
 #include <QSqlDatabase>
 #include <QTcpServer>
 #include <QTcpSocket>
-#include <QObject>
+
+#include "logger.hpp"
 
 namespace SHIZ{
 	class MainServer : public QTcpServer{
@@ -11,9 +12,10 @@ namespace SHIZ{
 
 		private:
 			QSqlDatabase dataBase;
+			Logger* logger;
 
 		public:
-			MainServer(QObject *parent = nullptr);
+			MainServer(Logger* logger, QObject *parent = nullptr);
 
 		protected:
 			void incomingConnection(qintptr socketDescriptor) override;

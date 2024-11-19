@@ -6,8 +6,8 @@
 #include "mainwidget.hpp"
 
 namespace SHIZ{
-	MainWidget::MainWidget(NetworkManager* manager, QWidget* parent)
-		: networkManager(manager), QWidget(parent)
+	MainWidget::MainWidget(Logger* logger, NetworkManager* manager, QWidget* parent)
+		: logger(logger), networkManager(manager), QWidget(parent)
 	{
 		QVBoxLayout* layout = new QVBoxLayout(this);
 

@@ -22,6 +22,7 @@ set(PROJECT_SOURCES
         main.cpp
         include/clientmacros.hpp
         include/connectionwidget.hpp src/connectionwidget.cpp
+        include/logger.hpp src/logger.cpp
         include/loginwidget.hpp src/loginwidget.cpp
         include/mainwidget.hpp src/mainwidget.cpp
         include/networkmanager.hpp src/networkmanager.cpp
@@ -43,8 +44,8 @@ else()
         )
     else()
         add_executable(DFS
-            ${PROJECT_SOURCES}
-			${RESOURCE_FILES}
+#            ${PROJECT_SOURCES}
+            ${RESOURCE_FILES}
         )
     endif()
 endif()

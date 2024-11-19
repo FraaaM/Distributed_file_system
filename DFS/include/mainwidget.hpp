@@ -24,8 +24,10 @@ namespace SHIZ{
 			QPushButton* deleteButton;
 			QPushButton* logoutButton;
 
+			Logger* logger;
+
 		public:
-			MainWidget(NetworkManager* manager, QWidget* parent = nullptr);
+			MainWidget(Logger* logger, NetworkManager* manager, QWidget* parent = nullptr);
 
 			void setCurrentLogin(const QString& login);
 

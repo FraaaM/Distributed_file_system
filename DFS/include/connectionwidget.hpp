@@ -18,8 +18,10 @@ namespace SHIZ{
 			QPushButton* enterButton;
 			QPushButton* quitButton;
 
+			Logger* logger;
+
 		public:
-			ConnectionWidget(NetworkManager* manager, QWidget* parent = nullptr);
+			ConnectionWidget(Logger* logger, NetworkManager* manager, QWidget* parent = nullptr);
 
 		signals:
 			void requestConnection(const QString &host, quint16 port);

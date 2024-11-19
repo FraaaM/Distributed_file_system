@@ -4,6 +4,8 @@
 #include <QTcpSocket>
 #include <QTimer>
 
+#include "logger.hpp"
+
 namespace SHIZ {
 	class NetworkManager : public QObject {
 		Q_OBJECT
@@ -15,8 +17,10 @@ namespace SHIZ {
 		QString host;
 		quint16 port;
 
+		Logger* logger;
+
 	public:
-		NetworkManager(QObject* parent = nullptr);
+		NetworkManager(Logger* logger, QObject* parent = nullptr);
 		~NetworkManager();
 
 		bool connectToHost(const QString& host, quint16 port);
