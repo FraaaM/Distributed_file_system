@@ -4,27 +4,20 @@
 #include <QMainWindow>
 #include <QPushButton>
 #include <QStatusBar>
-#include <QListWidget>
 #include <QVBoxLayout>
 
 #include "logger.hpp"
-#include "mainserver.hpp"
+#include "replicaserver.hpp"
 
 namespace SHIZ{
 	class MainWindow : public QMainWindow {
 		Q_OBJECT
 
 		private:
-			MainServer* server;
+			ReplicaServer* replica;
 			QPushButton* toggleButton;
 			QStatusBar* statusBar;
 			QLineEdit* portInput;
-
-			QListWidget* replicaList;
-			QLineEdit* replicaIpInput;
-			QLineEdit* replicaPortInput;
-			QPushButton* connectReplicaButton;
-			QPushButton* disconnectReplicaButton;
 
 			Logger* logger;
 			bool serverRunning;
@@ -34,8 +27,6 @@ namespace SHIZ{
 			~MainWindow();
 
 		private slots:
-			void onConnectReplica();
-			void onDisconnectReplica();
 			void onToggleServerState();
 	};
 }

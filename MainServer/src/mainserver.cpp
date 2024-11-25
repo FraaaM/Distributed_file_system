@@ -10,7 +10,9 @@
 #include "servermacros.hpp"
 
 namespace SHIZ {
-	MainServer::MainServer(Logger* logger, QObject* parent) : logger(logger), QTcpServer(parent) {
+	MainServer::MainServer(Logger* logger, QObject* parent)
+		: logger(logger), QTcpServer(parent)
+	{
 		dataBase = QSqlDatabase::addDatabase(DATABASE_TYPE);
 		dataBase.setDatabaseName(DATABASE_NAME);
 
@@ -41,14 +43,64 @@ namespace SHIZ {
 	}
 
 
+	bool MainServer::connectToHost(const QString& host, quint16 port) {
+		QTcpSocket* replicaSocket = new QTcpSocket(this);
+		replicaSocket->connectToHost(host, port);
+
+		if (replicaSocket->waitForConnected(3000)) {
+			replicaSockets.append(replicaSocket);
+			logger->log("Connected to replica at " + host + ":" + QString::number(port));
+			connect(replicaSocket, &QTcpSocket::connected, this, &MainServer::onReplicaConnected);
+			connect(replicaSocket, &QTcpSocket::disconnected, this, &MainServer::onReplicaDisconnected);
+			return true;
+		} else {
+			logger->log("Failed to connect to replica at " + host + ":" + QString::number(port));
+			replicaSocket->deleteLater();
+			return false;
+		}
+	}
+
+	void MainServer::disconnectFromHost(const QString& host, quint16 port) {
+		for (auto socket : replicaSockets) {
+			if (socket->peerAddress().toString() == host && socket->peerPort() == port) {
+				socket->disconnectFromHost();
+				if (socket->state() == QAbstractSocket::UnconnectedState || socket->waitForDisconnected(3000)) {
+					replicaSockets.removeOne(socket);
+					logger->log("Disconnected from replica at " + host + ":" + QString::number(port));
+					socket->deleteLater();
+					return;
+				}
+			}
+		}
+		logger->log("No active replica connection found at " + host + ":" + QString::number(port));
+	}
+
+
 	void MainServer::incomingConnection(qintptr socketDescriptor) {
-		QTcpSocket *clientSocket = new QTcpSocket(this);
-		clientSocket->setSocketDescriptor(socketDescriptor);
+		QTcpSocket* newSocket = new QTcpSocket(this);
+		newSocket->setSocketDescriptor(socketDescriptor);
 
-		connect(clientSocket, &QTcpSocket::readyRead, this, &MainServer::handleClientData);
-		connect(clientSocket, &QTcpSocket::disconnected, this, &MainServer::handleClientDisconnected);
+		if (newSocket->waitForReadyRead(3000)) {
+			QDataStream in(newSocket);
+			QString initialMessage;
+			in >> initialMessage;
 
-		logger->log("New connection established.");
+			if (initialMessage == "CLIENT") {
+				connect(newSocket, &QTcpSocket::readyRead, this, &MainServer::handleClientData);
+				connect(newSocket, &QTcpSocket::disconnected, this, &MainServer::handleClientDisconnected);
+				logger->log("New client connection established.");
+				return;
+			} else {
+				logger->log("Unknown connection type. Closing socket.");
+				newSocket->close();
+				newSocket->deleteLater();
+				return;
+			}
+		} else {
+			logger->log("No data received to identify connection type. Closing socket.");
+			newSocket->close();
+			newSocket->deleteLater();
+		}
 	}
 
 
@@ -288,10 +340,10 @@ namespace SHIZ {
 		query.addBindValue(filePath);
 
 		out << (query.exec() ? QString(RESPONSE_UPLOAD_SUCCESS) : QString(RESPONSE_UPLOAD_FAILED));
-		if (query.lastError().isValid()) qDebug() << query.lastError();
 		clientSocket->flush();
 		logger->log("File received successfully: " + fileName);
 	}
+
 
 
 	void MainServer::handleClientData() {
@@ -335,8 +387,23 @@ namespace SHIZ {
 	void MainServer::handleClientDisconnected() {
 		QTcpSocket* clientSocket = qobject_cast<QTcpSocket*>(sender());
 		if (clientSocket) {
-			logger->log("Client disconnected");
 			clientSocket->deleteLater();
+			logger->log("Client disconnected");
+		}
+	}
+
+	void MainServer::onReplicaConnected() {
+		logger->log("Replica connection established.");
+		emit statusMessage("Replica connected.");
+	}
+
+	void MainServer::onReplicaDisconnected() {
+		QTcpSocket* replicaSocket = qobject_cast<QTcpSocket*>(sender());
+		if (replicaSocket) {
+			replicaSockets.removeOne(replicaSocket);
+			logger->log("Replica disconnected: " + replicaSocket->peerAddress().toString() + ":" + QString::number(replicaSocket->peerPort()));
+			replicaSocket->deleteLater();
+			emit statusMessage("Replica disconnected.");
 		}
 	}
 }

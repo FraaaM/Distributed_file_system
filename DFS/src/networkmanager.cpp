@@ -7,7 +7,7 @@
 
 namespace SHIZ {
 	NetworkManager::NetworkManager(Logger* logger, QObject* parent)
-		:logger(logger), QObject(parent), host(""), port(DEFAULT_PORT)
+		: logger(logger), QObject(parent), host(""), port(DEFAULT_PORT)
 	{
 		tcpSocket = new QTcpSocket(this);
 		reconnectTimer = new QTimer(this);
@@ -18,9 +18,7 @@ namespace SHIZ {
 	}
 
 	NetworkManager::~NetworkManager() {
-		if (tcpSocket->isOpen()) {
-			tcpSocket->disconnectFromHost();
-		}
+		disconnectFromHost();
 	}
 
 
@@ -28,7 +26,14 @@ namespace SHIZ {
 		this->host = host;
 		this->port = port;
 		tcpSocket->connectToHost(host, port);
-		return tcpSocket->waitForConnected(3000);
+		if (tcpSocket->waitForConnected(3000)) {
+			logger->log("Connected to main server.");
+			QDataStream out(tcpSocket);
+			out << QString("CLIENT");
+			tcpSocket->flush();
+			return true;
+		}
+		return false;
 	}
 
 	void NetworkManager::disconnectFromHost() {
@@ -286,15 +291,15 @@ namespace SHIZ {
 
 
 	void NetworkManager::onConnected() {
+		reconnectTimer->stop();
 		emit statusMessage("Connected to server.");
 		logger->log("Connected to server.");
-		reconnectTimer->stop();
 	}
 
 	void NetworkManager::onDisconnected() {
+		reconnectTimer->start(RECONNECT_INTERVAL);
 		emit statusMessage("Disconnected from server.");
 		logger->log("Disconnected from server. Reconnecting...");
-		reconnectTimer->start(RECONNECT_INTERVAL);
 	}
 
 	void NetworkManager::onReconnectToServer() {

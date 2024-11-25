@@ -8,7 +8,7 @@ set BUILD_FOLDER=build_%BUILD_SUFFIX%
 if not exist %BUILD_FOLDER% mkdir %BUILD_FOLDER%
 cd %BUILD_FOLDER%
 
-cmake -G %BUILD_TYPE% ..
+cmake -G %BUILD_TYPE% -DCMAKE_BUILD_TYPE=Release ..
 cmake --build .
 
 cmd /k

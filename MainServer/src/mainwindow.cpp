@@ -10,8 +10,30 @@ namespace SHIZ{
 		QWidget* centralWidget = new QWidget(this);
 		QVBoxLayout* layout = new QVBoxLayout(centralWidget);
 
-		toggleButton = new QPushButton("Start Server", this);
+		portInput = new QLineEdit(this);
+		portInput->setPlaceholderText("1234");
+		portInput->setText("1234");
+		layout->addWidget(portInput);
+
+		toggleButton = new QPushButton("Start server", this);
 		layout->addWidget(toggleButton);
+
+		replicaList = new QListWidget(this);
+		layout->addWidget(replicaList);
+
+		replicaIpInput = new QLineEdit(this);
+		replicaIpInput->setPlaceholderText("Replica IP");
+		layout->addWidget(replicaIpInput);
+
+		replicaPortInput = new QLineEdit(this);
+		replicaPortInput->setPlaceholderText("Replica Port");
+		layout->addWidget(replicaPortInput);
+
+		connectReplicaButton = new QPushButton("Connect to Replica", this);
+		layout->addWidget(connectReplicaButton);
+
+		disconnectReplicaButton = new QPushButton("Disconnect from Replica", this);
+		layout->addWidget(disconnectReplicaButton);
 
 		statusBar = new QStatusBar(this);
 		setStatusBar(statusBar);
@@ -19,7 +41,9 @@ namespace SHIZ{
 
 		setCentralWidget(centralWidget);
 
-		connect(toggleButton, &QPushButton::clicked, this, &MainWindow::toggleServerState);
+		connect(connectReplicaButton, &QPushButton::clicked, this, &MainWindow::onConnectReplica);
+		connect(disconnectReplicaButton, &QPushButton::clicked, this, &MainWindow::onDisconnectReplica);
+		connect(toggleButton, &QPushButton::clicked, this, &MainWindow::onToggleServerState);
 	}
 
 	MainWindow::~MainWindow() {
@@ -30,22 +54,86 @@ namespace SHIZ{
 		delete server;
 	}
 
-	void MainWindow::toggleServerState() {
+
+	void MainWindow::onConnectReplica() {
+		QString replicaIp = replicaIpInput->text();
+		bool ok;
+		quint16 replicaPort = replicaPortInput->text().toUShort(&ok);
+
+		if (replicaIp.isEmpty() || !ok || replicaPort == 0) {
+			statusBar->showMessage("Invalid replica IP or port.");
+			logger->log("Invalid replica IP or port entered.");
+			return;
+		}
+
+		if (server->connectToHost(replicaIp, replicaPort)) {
+			replicaList->addItem(replicaIp + ":" + QString::number(replicaPort));
+			statusBar->showMessage("Replica connected: " + replicaIp + ":" + QString::number(replicaPort));
+		} else {
+			statusBar->showMessage("Failed to connect to replica.");
+		}
+	}
+
+	void MainWindow::onDisconnectReplica() {
+		QListWidgetItem* selectedItem = replicaList->currentItem();
+		if (!selectedItem) {
+			statusBar->showMessage("No replica selected for disconnection.");
+			logger->log("No replica selected for disconnection.");
+			return;
+		}
+
+		QString replicaAddress = selectedItem->text();
+		QStringList parts = replicaAddress.split(":");
+
+		if (parts.size() != 2) {
+			statusBar->showMessage("Invalid replica address format.");
+			logger->log("Invalid replica address format.");
+			return;
+		}
+
+		QString host = parts.at(0);
+		bool ok;
+		quint16 port = parts.at(1).toUShort(&ok);
+
+		if (!ok || port == 0) {
+			statusBar->showMessage("Invalid port in replica address.");
+			logger->log("Invalid port in replica address.");
+			return;
+		}
+
+		server->disconnectFromHost(host, port);
+		delete selectedItem;
+		statusBar->showMessage("Replica disconnected: " + host + ":" + QString::number(port));
+	}
+
+	void MainWindow::onToggleServerState() {
 		if (serverRunning) {
 			server->close();
 			statusBar->showMessage("Server stopped.");
-			toggleButton->setText("Start Server");
-			logger->log("Server stopped.");
+			toggleButton->setText("Start server");
+			portInput->setEnabled(true);
 			serverRunning = false;
+			logger->log("Server stopped.");
 		} else {
-			if (!server->listen(QHostAddress::Any, 1234)) {
+			bool ok;
+			quint16 port = portInput->text().toUShort(&ok);
+
+			if (!ok || port == 0) {
+				statusBar->showMessage("Invalid port.");
+				logger->log("Invalid port number entered.");
+				return;
+			}
+
+			if (!server->listen(QHostAddress::Any, port)) {
 				statusBar->showMessage("Failed to start server.");
 				logger->log("Failed to start server.");
 				return;
 			}
-			statusBar->showMessage("Server started on port 1234.");
-			toggleButton->setText("Stop Server");
-			logger->log("Server started on port 1234.");
+
+			statusBar->showMessage(QString("Server started on port %1.").arg(port));
+			toggleButton->setText("Stop server");
+			logger->log(QString("Server started on port %1.").arg(port));
+			portInput->setEnabled(false);
 			serverRunning = true;
 		}
 	}
