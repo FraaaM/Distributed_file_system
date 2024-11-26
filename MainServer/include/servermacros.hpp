@@ -5,6 +5,10 @@
 
 #define UPLOAD_DIRECTORY "/Uploaded_files"
 
+#define CLIENT "CLIENT"
+#define MAIN_SERVER "MAIN_SERVER"
+#define REPLICA "REPLICA"
+
 #define RESPONSE_LOGIN_SUCCESS "LOGIN_SUCCESS"
 #define RESPONSE_LOGIN_FAILED "LOGIN_FAILED"
 #define RESPONSE_REGISTER_SUCCESS "REGISTER_SUCCESS"
@@ -27,6 +31,7 @@
 #define COMMAND_UPLOAD_CHUNK "UPLOAD_CHUNK"
 #define COMMAND_DELETE "DELETE"
 #define COMMAND_GET_FILES "GET_FILES"
+#define COMMAND_REPLICA_UPLOAD "REPLICA_UPLOAD"
 
 #define CHUNK_SIZE 1024
 
@@ -42,3 +47,9 @@
 #define FIELD_FILE_SIZE "size"
 #define FIELD_FILE_UPLOAD_DATE "upload_date"
 #define FIELD_FILE_PATH "file_path"
+
+#define TABLE_FILE_REPLICAS "file_replicas"
+#define FIELD_REPLICA_ID "id"
+#define FIELD_FILE_FILENAME "file_name"
+#define FIELD_REPLICA_ADDRESS "replica_address"
+#define FIELD_REPLICA_PORT "replica_port"

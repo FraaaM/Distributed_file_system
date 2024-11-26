@@ -36,6 +36,7 @@ namespace SHIZ{
 		private slots:
 			void onConnectReplica();
 			void onDisconnectReplica();
+			void onReplicaDisconnected(const QString& replicaAddress);
 			void onToggleServerState();
 	};
 }

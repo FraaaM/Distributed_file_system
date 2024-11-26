@@ -35,7 +35,7 @@ namespace SHIZ{
 
 	void MainWindow::onToggleServerState() {
 		if (serverRunning) {
-			replica->close();
+			replica->closeServer();
 			statusBar->showMessage("Replica stopped.");
 			toggleButton->setText("Start replica");
 			portInput->setEnabled(true);

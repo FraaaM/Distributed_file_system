@@ -7,7 +7,7 @@
 
 namespace SHIZ {
 	ReplicaServer::ReplicaServer(Logger* logger, QObject* parent)
-		: logger(logger), QTcpServer(parent)
+		: mainServer(nullptr), logger(logger), QTcpServer(parent)
 	{
 		QDir dir(QCoreApplication::applicationDirPath() + UPLOAD_DIRECTORY);
 		if (!dir.exists()) {
@@ -17,8 +17,35 @@ namespace SHIZ {
 		logger->log("Server initialized successfully.");
 	}
 
+	ReplicaServer::~ReplicaServer(){
+		closeServer();
+	}
+
+
+	void ReplicaServer::closeServer() {
+		close();
+		if (mainServer) {
+			disconnect(mainServer, nullptr, this, nullptr);
+			mainServer->disconnectFromHost();
+			if (mainServer->state() != QAbstractSocket::UnconnectedState) {
+				mainServer->waitForDisconnected();
+			}
+			mainServer->deleteLater();
+			mainServer = nullptr;
+			logger->log("Disconnected from Main Server.");
+		}
+		logger->log("Replica server stopped.");
+	}
 
 	void ReplicaServer::incomingConnection(qintptr socketDescriptor) {
+		if (mainServer) {
+			logger->log("Main Server connection already exists. Rejecting new connection.");
+			QTcpSocket tempSocket;
+			tempSocket.setSocketDescriptor(socketDescriptor);
+			tempSocket.disconnectFromHost();
+			return;
+		}
+
 		QTcpSocket* newSocket = new QTcpSocket(this);
 		newSocket->setSocketDescriptor(socketDescriptor);
 
@@ -27,7 +54,8 @@ namespace SHIZ {
 			QString initialMessage;
 			in >> initialMessage;
 
-			if (initialMessage == "MAIN_SERVER") {
+			if (initialMessage == MAIN_SERVER) {
+				mainServer = newSocket;
 				connect(newSocket, &QTcpSocket::readyRead, this, &ReplicaServer::handleMainServerData);
 				connect(newSocket, &QTcpSocket::disconnected, this, &ReplicaServer::handleMainServerDisconnected);
 				logger->log("Main Server connection established.");
@@ -53,13 +81,53 @@ namespace SHIZ {
 		QDataStream in(mainServerSocket);
 		QString command;
 		in >> command;
+
+		if (command == COMMAND_REPLICA_UPLOAD) {
+			QString fileName;
+			qint64 fileSize;
+			in >> fileName >> fileSize;
+
+			QString filePath = QCoreApplication::applicationDirPath() + UPLOAD_DIRECTORY "/" + fileName;
+
+			QDataStream out(mainServerSocket);
+			out << QString(RESPONSE_READY_FOR_DATA);
+			mainServerSocket->flush();
+
+			QByteArray fileData;
+			qint64 totalReceived = 0;
+
+			while (totalReceived < fileSize) {
+				if (mainServerSocket->waitForReadyRead(3000)) {
+					QByteArray chunk;
+					in >> chunk;
+					fileData.append(chunk);
+					totalReceived += chunk.size();
+
+					out << QString(RESPONSE_CHUNK_RECEIVED);
+					mainServerSocket->flush();
+				} else {
+					logger->log("Timeout while receiving file: " + fileName);
+					return;
+				}
+			}
+
+			QFile file(filePath);
+			if (file.open(QIODevice::WriteOnly)) {
+				file.write(fileData);
+				file.close();
+				logger->log("File saved successfully: " + fileName);
+			} else {
+				logger->log("Failed to save file: " + file.errorString());
+				return;
+			}
+		}
 	}
 
 	void ReplicaServer::handleMainServerDisconnected() {
-		QTcpSocket* mainServerSocket = qobject_cast<QTcpSocket*>(sender());
-		if (mainServerSocket) {
-			mainServerSocket->deleteLater();
-			logger->log("Main Server disconnected");
+		if (mainServer) {
+			mainServer->deleteLater();
+			mainServer = nullptr;
+			logger->log("Main Server disconnected.");
 		}
 	}
 }

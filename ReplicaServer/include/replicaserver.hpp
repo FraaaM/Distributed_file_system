@@ -10,10 +10,14 @@ namespace SHIZ{
 		Q_OBJECT
 
 		private:
+			QTcpSocket* mainServer;
 			Logger* logger;
 
 		public:
 			ReplicaServer(Logger* logger, QObject* parent = nullptr);
+			~ReplicaServer();
+
+			void closeServer();
 
 		protected:
 			void incomingConnection(qintptr socketDescriptor) override;

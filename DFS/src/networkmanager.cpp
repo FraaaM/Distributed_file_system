@@ -29,7 +29,7 @@ namespace SHIZ {
 		if (tcpSocket->waitForConnected(3000)) {
 			logger->log("Connected to main server.");
 			QDataStream out(tcpSocket);
-			out << QString("CLIENT");
+			out << QString(CLIENT);
 			tcpSocket->flush();
 			return true;
 		}
@@ -306,6 +306,6 @@ namespace SHIZ {
 		if (host.isEmpty() || tcpSocket->state() != QTcpSocket::UnconnectedState) {
 			return;
 		}
-		tcpSocket->connectToHost(host, port);
+		connectToHost(host, port);
 	}
 }

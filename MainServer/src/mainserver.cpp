@@ -33,6 +33,11 @@ namespace SHIZ {
 				   FIELD_FILE_SIZE " INTEGER, "
 				   FIELD_FILE_UPLOAD_DATE " TEXT, "
 				   FIELD_FILE_PATH " TEXT)");
+		query.exec("CREATE TABLE IF NOT EXISTS " TABLE_FILE_REPLICAS " ("
+				   FIELD_REPLICA_ID " INTEGER PRIMARY KEY AUTOINCREMENT, "
+				   FIELD_FILE_FILENAME " TEXT, "
+				   FIELD_REPLICA_ADDRESS " TEXT, "
+				   FIELD_REPLICA_PORT " INTEGER)");
 
 		QDir dir(QCoreApplication::applicationDirPath() + UPLOAD_DIRECTORY);
 		if (!dir.exists()) {
@@ -42,14 +47,36 @@ namespace SHIZ {
 		logger->log("Server initialized successfully.");
 	}
 
+	MainServer::~MainServer() {
+		closeServer();
+	}
+
+
+	void MainServer::closeServer() {
+		close();
+		for (QTcpSocket* client : activeClients) {
+			client->disconnectFromHost();
+			if (client->state() != QAbstractSocket::UnconnectedState) {
+				client->waitForDisconnected();
+			}
+			client->deleteLater();
+		}
+		activeClients.clear();
+		logger->log("All clients disconnected and server stopped.");
+	}
 
 	bool MainServer::connectToHost(const QString& host, quint16 port) {
 		QTcpSocket* replicaSocket = new QTcpSocket(this);
 		replicaSocket->connectToHost(host, port);
 
 		if (replicaSocket->waitForConnected(3000)) {
+			QDataStream out(replicaSocket);
+			out << QString(MAIN_SERVER);
+			replicaSocket->flush();
+
 			replicaSockets.append(replicaSocket);
 			logger->log("Connected to replica at " + host + ":" + QString::number(port));
+
 			connect(replicaSocket, &QTcpSocket::connected, this, &MainServer::onReplicaConnected);
 			connect(replicaSocket, &QTcpSocket::disconnected, this, &MainServer::onReplicaDisconnected);
 			return true;
@@ -63,6 +90,7 @@ namespace SHIZ {
 	void MainServer::disconnectFromHost(const QString& host, quint16 port) {
 		for (auto socket : replicaSockets) {
 			if (socket->peerAddress().toString() == host && socket->peerPort() == port) {
+				disconnect(socket, nullptr, this, nullptr);
 				socket->disconnectFromHost();
 				if (socket->state() == QAbstractSocket::UnconnectedState || socket->waitForDisconnected(3000)) {
 					replicaSockets.removeOne(socket);
@@ -85,7 +113,8 @@ namespace SHIZ {
 			QString initialMessage;
 			in >> initialMessage;
 
-			if (initialMessage == "CLIENT") {
+			if (initialMessage == CLIENT) {
+				activeClients.append(newSocket);
 				connect(newSocket, &QTcpSocket::readyRead, this, &MainServer::handleClientData);
 				connect(newSocket, &QTcpSocket::disconnected, this, &MainServer::handleClientDisconnected);
 				logger->log("New client connection established.");
@@ -103,6 +132,74 @@ namespace SHIZ {
 		}
 	}
 
+
+	bool MainServer::distributeFileToReplicas(const QString& fileName, const QByteArray& fileData) {
+		bool atLeastOneSuccess = false;
+		for (QTcpSocket* replicaSocket : replicaSockets) {
+			QDataStream out(replicaSocket);
+			out << QString(COMMAND_REPLICA_UPLOAD) << fileName << fileData.size();
+			replicaSocket->flush();
+
+			if (!replicaSocket->waitForReadyRead(3000)) {
+				logger->log("No response from replica for upload.");
+				continue;
+			}
+
+			QDataStream in(replicaSocket);
+			QString response;
+			in >> response;
+
+			if (response != RESPONSE_READY_FOR_DATA) {
+				logger->log("Replica is not ready for upload: " + response);
+				continue;
+			}
+
+			const qint64 chunkSize = CHUNK_SIZE;
+			qint64 bytesSent = 0;
+			bool uploadSuccessful = true;
+
+			while (bytesSent < fileData.size()) {
+				QByteArray chunk = fileData.mid(bytesSent, chunkSize);
+				out << chunk;
+				replicaSocket->flush();
+				bytesSent += chunk.size();
+
+				if (!replicaSocket->waitForReadyRead(3000)) {
+					uploadSuccessful = false;
+					logger->log("No response from replica during upload.");
+					break;
+				}
+
+				in >> response;
+				if (response != RESPONSE_CHUNK_RECEIVED) {
+					uploadSuccessful = false;
+					logger->log("Replica failed to acknowledge chunk.");
+					break;
+				}
+			}
+
+			if (uploadSuccessful && bytesSent >= fileData.size()) {
+				QString replicaAddress = replicaSocket->peerAddress().toString();
+				quint16 replicaPort = replicaSocket->peerPort();
+
+				QSqlQuery query;
+				query.prepare("INSERT INTO " TABLE_FILE_REPLICAS " (" FIELD_FILE_FILENAME ", " FIELD_REPLICA_ADDRESS ", " FIELD_REPLICA_PORT ") VALUES (?, ?, ?)");
+				query.addBindValue(fileName);
+				query.addBindValue(replicaAddress);
+				query.addBindValue(replicaPort);
+
+				if (!query.exec()) {
+					logger->log("Failed to save replica file info: " + query.lastError().text());
+				} else {
+					atLeastOneSuccess = true;
+					logger->log("File info saved for replica: " + replicaAddress + ":" + QString::number(replicaPort));
+				}
+			} else {
+				logger->log("File upload to replica failed: " + replicaSocket->peerAddress().toString());
+			}
+		}
+		return atLeastOneSuccess;
+	}
 
 	void MainServer::processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName) {
 		QSqlQuery query;
@@ -307,7 +404,8 @@ namespace SHIZ {
 				in >> chunk;
 				if (chunk.isEmpty()) {
 					logger->log("Received empty chunk, ending upload.");
-					break;
+					out << QString(RESPONSE_UPLOAD_FAILED);
+					return;
 				}
 				fileData.append(chunk);
 				totalReceived += chunk.size();
@@ -316,7 +414,8 @@ namespace SHIZ {
 				clientSocket->flush();
 			} else {
 				logger->log("No data received from client.");
-				break;
+				out << QString(RESPONSE_UPLOAD_FAILED);
+				return;
 			}
 		}
 
@@ -339,7 +438,13 @@ namespace SHIZ {
 		query.addBindValue(uploadDate);
 		query.addBindValue(filePath);
 
-		out << (query.exec() ? QString(RESPONSE_UPLOAD_SUCCESS) : QString(RESPONSE_UPLOAD_FAILED));
+		if (!query.exec()) {
+			out << QString(RESPONSE_UPLOAD_FAILED);
+			clientSocket->flush();
+			return;
+		}
+
+		out << (distributeFileToReplicas(fileName, fileData) ? QString(RESPONSE_UPLOAD_SUCCESS) : QString(RESPONSE_UPLOAD_FAILED));
 		clientSocket->flush();
 		logger->log("File received successfully: " + fileName);
 	}
@@ -387,6 +492,7 @@ namespace SHIZ {
 	void MainServer::handleClientDisconnected() {
 		QTcpSocket* clientSocket = qobject_cast<QTcpSocket*>(sender());
 		if (clientSocket) {
+			activeClients.removeAll(clientSocket);
 			clientSocket->deleteLater();
 			logger->log("Client disconnected");
 		}
@@ -400,9 +506,11 @@ namespace SHIZ {
 	void MainServer::onReplicaDisconnected() {
 		QTcpSocket* replicaSocket = qobject_cast<QTcpSocket*>(sender());
 		if (replicaSocket) {
+			QString replicaAddress = replicaSocket->peerAddress().toString() + ":" + QString::number(replicaSocket->peerPort());
 			replicaSockets.removeOne(replicaSocket);
-			logger->log("Replica disconnected: " + replicaSocket->peerAddress().toString() + ":" + QString::number(replicaSocket->peerPort()));
+			logger->log("Replica disconnected: " + replicaAddress);
 			replicaSocket->deleteLater();
+			emit replicaDisconnected(replicaAddress);
 			emit statusMessage("Replica disconnected.");
 		}
 	}

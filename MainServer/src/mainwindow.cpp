@@ -43,6 +43,7 @@ namespace SHIZ{
 
 		connect(connectReplicaButton, &QPushButton::clicked, this, &MainWindow::onConnectReplica);
 		connect(disconnectReplicaButton, &QPushButton::clicked, this, &MainWindow::onDisconnectReplica);
+		connect(server, &MainServer::replicaDisconnected, this, &MainWindow::onReplicaDisconnected);
 		connect(toggleButton, &QPushButton::clicked, this, &MainWindow::onToggleServerState);
 	}
 
@@ -106,9 +107,18 @@ namespace SHIZ{
 		statusBar->showMessage("Replica disconnected: " + host + ":" + QString::number(port));
 	}
 
+	void MainWindow::onReplicaDisconnected(const QString& replicaAddress) {
+		QList<QListWidgetItem*> items = replicaList->findItems(replicaAddress, Qt::MatchExactly);
+		for (QListWidgetItem* item : items) {
+			delete replicaList->takeItem(replicaList->row(item));
+		}
+		statusBar->showMessage("Replica disconnected: " + replicaAddress);
+		logger->log("Replica removed from list: " + replicaAddress);
+	}
+
 	void MainWindow::onToggleServerState() {
 		if (serverRunning) {
-			server->close();
+			server->closeServer();
 			statusBar->showMessage("Server stopped.");
 			toggleButton->setText("Start server");
 			portInput->setEnabled(true);

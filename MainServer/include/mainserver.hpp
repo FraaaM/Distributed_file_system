@@ -12,12 +12,15 @@ namespace SHIZ{
 
 		private:
 			QSqlDatabase dataBase;
+			QList<QTcpSocket*> activeClients;
 			QVector<QTcpSocket*> replicaSockets;
 			Logger* logger;
 
 		public:
 			MainServer(Logger* logger, QObject *parent = nullptr);
+			~MainServer();
 
+			void closeServer();
 			bool connectToHost(const QString& host, quint16 port);
 			void disconnectFromHost(const QString& host, quint16 port);
 
@@ -25,6 +28,7 @@ namespace SHIZ{
 			void incomingConnection(qintptr socketDescriptor) override;
 
 		private:
+			bool distributeFileToReplicas(const QString& fileName, const QByteArray& fileData);
 			void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName);
 			void processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName);
 			void processFileListRequest(QTcpSocket* clientSocket);
@@ -34,6 +38,7 @@ namespace SHIZ{
 			void processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize);
 
 		signals:
+			void replicaDisconnected(const QString& replicaAddress);
 			void statusMessage(const QString& message);
 
 		private slots:
