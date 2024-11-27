@@ -32,6 +32,8 @@
 #define COMMAND_DELETE "DELETE"
 #define COMMAND_GET_FILES "GET_FILES"
 #define COMMAND_REPLICA_UPLOAD "REPLICA_UPLOAD"
+#define COMMAND_REPLICA_DELETE "REPLICA_DELETE"
+#define COMMAND_REPLICA_DOWNLOAD "REPLICA_DOWNLOAD"
 
 #define CHUNK_SIZE 1024
 
@@ -46,10 +48,8 @@
 #define FIELD_FILE_OWNER "owner"
 #define FIELD_FILE_SIZE "size"
 #define FIELD_FILE_UPLOAD_DATE "upload_date"
-#define FIELD_FILE_PATH "file_path"
 
 #define TABLE_FILE_REPLICAS "file_replicas"
 #define FIELD_REPLICA_ID "id"
-#define FIELD_FILE_FILENAME "file_name"
 #define FIELD_REPLICA_ADDRESS "replica_address"
 #define FIELD_REPLICA_PORT "replica_port"

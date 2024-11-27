@@ -11,8 +11,8 @@ namespace SHIZ{
 		QVBoxLayout* layout = new QVBoxLayout(centralWidget);
 
 		portInput = new QLineEdit(this);
-		portInput->setPlaceholderText("1234");
-		portInput->setText("1234");
+		portInput->setPlaceholderText("Replica Port");
+		portInput->setText("12345");
 		layout->addWidget(portInput);
 
 		toggleButton = new QPushButton("Start replica", this);

@@ -11,7 +11,7 @@ namespace SHIZ{
 		QVBoxLayout* layout = new QVBoxLayout(centralWidget);
 
 		portInput = new QLineEdit(this);
-		portInput->setPlaceholderText("1234");
+		portInput->setPlaceholderText("Main Server Port");
 		portInput->setText("1234");
 		layout->addWidget(portInput);
 
@@ -23,10 +23,12 @@ namespace SHIZ{
 
 		replicaIpInput = new QLineEdit(this);
 		replicaIpInput->setPlaceholderText("Replica IP");
+		replicaIpInput->setText("127.0.0.1");
 		layout->addWidget(replicaIpInput);
 
 		replicaPortInput = new QLineEdit(this);
 		replicaPortInput->setPlaceholderText("Replica Port");
+		replicaPortInput->setText("12345");
 		layout->addWidget(replicaPortInput);
 
 		connectReplicaButton = new QPushButton("Connect to Replica", this);

@@ -31,18 +31,14 @@ namespace SHIZ {
 				   FIELD_FILE_FILENAME " TEXT, "
 				   FIELD_FILE_OWNER " TEXT, "
 				   FIELD_FILE_SIZE " INTEGER, "
-				   FIELD_FILE_UPLOAD_DATE " TEXT, "
-				   FIELD_FILE_PATH " TEXT)");
+				   FIELD_FILE_UPLOAD_DATE " TEXT)");
 		query.exec("CREATE TABLE IF NOT EXISTS " TABLE_FILE_REPLICAS " ("
 				   FIELD_REPLICA_ID " INTEGER PRIMARY KEY AUTOINCREMENT, "
 				   FIELD_FILE_FILENAME " TEXT, "
 				   FIELD_REPLICA_ADDRESS " TEXT, "
-				   FIELD_REPLICA_PORT " INTEGER)");
-
-		QDir dir(QCoreApplication::applicationDirPath() + UPLOAD_DIRECTORY);
-		if (!dir.exists()) {
-			dir.mkpath(".");
-		}
+				   FIELD_REPLICA_PORT " INTEGER,"
+				   FIELD_FILE_UPLOAD_DATE " TEXT)");
+		logger->log("Query CREATE TABLE last error: " + query.lastError().text());
 
 		logger->log("Server initialized successfully.");
 	}
@@ -133,9 +129,49 @@ namespace SHIZ {
 	}
 
 
-	bool MainServer::distributeFileToReplicas(const QString& fileName, const QByteArray& fileData) {
+	bool MainServer::distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate) {
 		bool atLeastOneSuccess = false;
 		for (QTcpSocket* replicaSocket : replicaSockets) {
+			QString replicaAddress = replicaSocket->peerAddress().toString();
+			quint16 replicaPort = replicaSocket->peerPort();
+
+			QSqlQuery checkQuery;
+			checkQuery.prepare("SELECT " FIELD_REPLICA_ID " FROM " TABLE_FILE_REPLICAS
+							   " WHERE " FIELD_FILE_FILENAME " = :filename AND "
+							   FIELD_REPLICA_ADDRESS " = :address AND "
+							   FIELD_REPLICA_PORT " = :port");
+			checkQuery.bindValue(":filename", fileName);
+			checkQuery.bindValue(":address", replicaAddress);
+			checkQuery.bindValue(":port", replicaPort);
+
+			if (checkQuery.exec() && checkQuery.next()) {
+				QDataStream out(replicaSocket);
+				out << QString(COMMAND_REPLICA_DELETE) << fileName;
+				replicaSocket->flush();
+
+				if (!replicaSocket->waitForReadyRead(3000)) {
+					logger->log("No response from replica for delete.");
+				} else {
+					QDataStream in(replicaSocket);
+					QString response;
+					in >> response;
+
+					if (response != RESPONSE_DELETE_SUCCESS) {
+						logger->log("Replica failed to delete existing file: " + fileName);
+					}
+				}
+
+				QSqlQuery deleteQuery;
+				deleteQuery.prepare("DELETE FROM " TABLE_FILE_REPLICAS
+									" WHERE " FIELD_FILE_FILENAME " = :filename AND "
+									FIELD_REPLICA_ADDRESS " = :address AND "
+									FIELD_REPLICA_PORT " = :port");
+				deleteQuery.bindValue(":filename", fileName);
+				deleteQuery.bindValue(":address", replicaAddress);
+				deleteQuery.bindValue(":port", replicaPort);
+				deleteQuery.exec();
+			}
+
 			QDataStream out(replicaSocket);
 			out << QString(COMMAND_REPLICA_UPLOAD) << fileName << fileData.size();
 			replicaSocket->flush();
@@ -183,13 +219,18 @@ namespace SHIZ {
 				quint16 replicaPort = replicaSocket->peerPort();
 
 				QSqlQuery query;
-				query.prepare("INSERT INTO " TABLE_FILE_REPLICAS " (" FIELD_FILE_FILENAME ", " FIELD_REPLICA_ADDRESS ", " FIELD_REPLICA_PORT ") VALUES (?, ?, ?)");
+				query.prepare("INSERT INTO " TABLE_FILE_REPLICAS " ("
+							  FIELD_FILE_FILENAME ", "
+							  FIELD_REPLICA_ADDRESS ", "
+							  FIELD_REPLICA_PORT ", "
+							  FIELD_FILE_UPLOAD_DATE ") VALUES (?, ?, ?, ?)");
 				query.addBindValue(fileName);
 				query.addBindValue(replicaAddress);
 				query.addBindValue(replicaPort);
+				query.addBindValue(uploadDate);
 
 				if (!query.exec()) {
-					logger->log("Failed to save replica file info: " + query.lastError().text());
+					logger->log("Failed to save replica file info: " + query.lastError().text() + replicaAddress + ":" + QString::number(replicaPort));
 				} else {
 					atLeastOneSuccess = true;
 					logger->log("File info saved for replica: " + replicaAddress + ":" + QString::number(replicaPort));
@@ -202,102 +243,94 @@ namespace SHIZ {
 	}
 
 	void MainServer::processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName) {
+		QDataStream out(clientSocket);
+
 		QSqlQuery query;
-		query.prepare("SELECT " FIELD_FILE_PATH " FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
+		query.prepare("DELETE FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
+		query.bindValue(":filename", fileName);
+		if (!query.exec()) {
+			logger->log("Failed to delete file from database: " + query.lastError().text());
+			out << QString(RESPONSE_DELETE_FAILED);
+			clientSocket->flush();
+			return;
+		}
+
+		query.prepare("SELECT " FIELD_REPLICA_ADDRESS ", " FIELD_REPLICA_PORT " FROM " TABLE_FILE_REPLICAS " WHERE " FIELD_FILE_FILENAME " = :filename");
 		query.bindValue(":filename", fileName);
 
-		QDataStream out(clientSocket);
-		if (query.exec() && query.next()) {
-			QString filePath = query.value(FIELD_FILE_PATH).toString();
+		QList<QPair<QString, quint16>> replicaList;
+		if (query.exec()) {
+			while (query.next()) {
+				QString address = query.value(FIELD_REPLICA_ADDRESS).toString();
+				quint16 port = query.value(FIELD_REPLICA_PORT).toUInt();
+				replicaList.append(qMakePair(address, port));
+			}
 
-			if (QFile::exists(filePath) && !QFile::remove(filePath)) {
-				logger->log("Failed to delete file from disk:");
+			for (const auto& replica : replicaList) {
+				for (QTcpSocket* replicaSocket : replicaSockets) {
+					if (replicaSocket->peerAddress().toString() == replica.first && replicaSocket->peerPort() == replica.second) {
+						QDataStream replicaOut(replicaSocket);
+						replicaOut << QString(COMMAND_REPLICA_DELETE) << fileName;
+						replicaSocket->flush();
+						logger->log("Sent delete request to replica: " + replica.first + ":" + QString::number(replica.second));
+					}
+				}
+			}
+
+			query.prepare("DELETE FROM " TABLE_FILE_REPLICAS " WHERE " FIELD_FILE_FILENAME " = :filename");
+			query.bindValue(":filename", fileName);
+			if (!query.exec()) {
+				logger->log("Failed to delete file replicas info: " + query.lastError().text());
 				out << QString(RESPONSE_DELETE_FAILED);
 				clientSocket->flush();
 				return;
 			}
-
-			query.prepare("DELETE FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
-			query.bindValue(":filename", fileName);
-
-			if (query.exec()) {
-				out << QString(RESPONSE_DELETE_SUCCESS);
-			} else {
-				logger->log("Failed to delete file from database:" + query.lastError().text());
-				out << QString(RESPONSE_DELETE_FAILED);
-			}
 		} else {
-			logger->log("File not found in database or query failed:" + query.lastError().text());
-			out << QString(RESPONSE_DELETE_FAILED);
+			logger->log("Failed to retrieve replica list: " + query.lastError().text());
 		}
+
+		out << QString(RESPONSE_DELETE_SUCCESS);
 		clientSocket->flush();
 	}
 
 	void MainServer::processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName) {
 		QSqlQuery query;
-		query.prepare("SELECT " FIELD_FILE_PATH ", " FIELD_FILE_SIZE " FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
+		query.prepare("SELECT " FIELD_REPLICA_ADDRESS ", " FIELD_REPLICA_PORT " FROM " TABLE_FILE_REPLICAS
+					  " WHERE " FIELD_FILE_FILENAME " = :filename");
 		query.bindValue(":filename", fileName);
 
 		QDataStream out(clientSocket);
-		if (!query.exec() || !query.next()) {
+
+		if (!query.exec()) {
 			out << QString(RESPONSE_DOWNLOAD_FAILED);
 			clientSocket->flush();
-			logger->log("File not found in database or query failed.");
+			logger->log("Failed to query replicas for file: " + query.lastError().text());
 			return;
 		}
 
-		QString filePath = query.value(FIELD_FILE_PATH).toString();
-		qint64 fileSize = query.value(FIELD_FILE_SIZE).toLongLong();
+		QList<QPair<QString, quint16>> replicaList;
+		while (query.next()) {
+			QString address = query.value(FIELD_REPLICA_ADDRESS).toString();
+			quint16 port = query.value(FIELD_REPLICA_PORT).toUInt();
+			replicaList.append(qMakePair(address, port));
+		}
 
-		QFile file(filePath);
-		if (!file.open(QIODevice::ReadOnly)) {
+		if (replicaList.isEmpty()) {
 			out << QString(RESPONSE_DOWNLOAD_FAILED);
 			clientSocket->flush();
-			logger->log("Failed to open file for reading:" + file.errorString());
+			logger->log("No replicas found for file: " + fileName);
 			return;
 		}
 
-		QByteArray fileData = file.readAll();
-		file.close();
+		for (const auto& replica : replicaList) {
+			if (tryDownloadFromReplica(clientSocket, fileName, replica.first, replica.second)) {
+				return;
+			}
+		}
 
-		out << QString(RESPONSE_DOWNLOAD_READY) << fileSize;
+		out << QString(RESPONSE_DOWNLOAD_FAILED);
 		clientSocket->flush();
-
-		if (!clientSocket->waitForReadyRead(3000)) {
-			logger->log("No response from client for download request.");
-			return;
-		}
-
-		QDataStream in(clientSocket);
-		QString clientResponse;
-		in >> clientResponse;
-
-		if (clientResponse != RESPONSE_READY_FOR_DATA) {
-			logger->log("Client is not ready to receive file.");
-			return;
-		}
-
-		const qint64 chunkSize = CHUNK_SIZE;
-		qint64 bytesSent = 0;
-
-		while (bytesSent < fileSize) {
-			QByteArray chunk = fileData.mid(bytesSent, chunkSize);
-			out << chunk;
-			clientSocket->flush();
-			bytesSent += chunk.size();
-
-			if (!clientSocket->waitForReadyRead(3000)) {
-				logger->log("No response from client after sending chunk.");
-				return;
-			}
-
-			in >> clientResponse;
-			if (clientResponse != RESPONSE_CHUNK_RECEIVED) {
-				logger->log("Client did not acknowledge chunk.");
-				return;
-			}
-		}
-		logger->log("File sent successfully: " + fileName);
+		logger->log("Failed to fetch file from all replicas: " + fileName);
 	}
 
 	void MainServer::processFileListRequest(QTcpSocket* clientSocket) {
@@ -366,28 +399,16 @@ namespace SHIZ {
 
 	void MainServer::processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize) {
 		QString uploadDate = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-		QString filePath = QCoreApplication::applicationDirPath() + UPLOAD_DIRECTORY "/" + fileName;
 
-		QSqlQuery checkQuery;
-		checkQuery.prepare("SELECT " FIELD_FILE_PATH " FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
-		checkQuery.bindValue(":filename", fileName);
-
-		if (checkQuery.exec() && checkQuery.next()) {
-			QString existingFilePath = checkQuery.value(FIELD_FILE_PATH).toString();
-			if (QFile::exists(existingFilePath)) {
-				QFile::remove(existingFilePath);
-			}
-
-			QSqlQuery deleteQuery;
-			deleteQuery.prepare("DELETE FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
-			deleteQuery.bindValue(":filename", fileName);
-			if (!deleteQuery.exec()) {
-				logger->log("Error deleting an existing file:" + deleteQuery.lastError().text());
-				QDataStream out(clientSocket);
-				out << QString(RESPONSE_UPLOAD_FAILED);
-				clientSocket->flush();
-				return;
-			}
+		QSqlQuery deleteQuery;
+		deleteQuery.prepare("DELETE FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
+		deleteQuery.bindValue(":filename", fileName);
+		if (!deleteQuery.exec()) {
+			logger->log("Error deleting an existing file:" + deleteQuery.lastError().text());
+			QDataStream out(clientSocket);
+			out << QString(RESPONSE_UPLOAD_FAILED);
+			clientSocket->flush();
+			return;
 		}
 
 		QByteArray fileData;
@@ -419,36 +440,125 @@ namespace SHIZ {
 			}
 		}
 
-		QFile file(filePath);
-		if (file.open(QIODevice::WriteOnly)) {
-			file.write(fileData);
-			file.close();
-		} else {
-			logger->log("Failed to write file to disk:" + file.errorString());
+		if (!distributeFileToReplicas(fileName, fileData, uploadDate)) {
 			out << QString(RESPONSE_UPLOAD_FAILED);
 			clientSocket->flush();
+			logger->log("Failed to distribute file to replicas: " + fileName);
 			return;
 		}
 
 		QSqlQuery query;
-		query.prepare("INSERT INTO " TABLE_FILES " (" FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ", " FIELD_FILE_PATH ") VALUES (?, ?, ?, ?, ?)");
+		query.prepare("INSERT INTO " TABLE_FILES " (" FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ") VALUES (?, ?, ?, ?)");
 		query.addBindValue(fileName);
 		query.addBindValue(owner);
 		query.addBindValue(fileSize);
 		query.addBindValue(uploadDate);
-		query.addBindValue(filePath);
 
 		if (!query.exec()) {
 			out << QString(RESPONSE_UPLOAD_FAILED);
 			clientSocket->flush();
+			logger->log("Failed to insert file record into database: " + query.lastError().text());
 			return;
 		}
 
-		out << (distributeFileToReplicas(fileName, fileData) ? QString(RESPONSE_UPLOAD_SUCCESS) : QString(RESPONSE_UPLOAD_FAILED));
+		out << QString(RESPONSE_UPLOAD_SUCCESS);
 		clientSocket->flush();
-		logger->log("File received successfully: " + fileName);
+		logger->log("File received and processed successfully: " + fileName);
 	}
 
+	bool MainServer::tryDownloadFromReplica(QTcpSocket* clientSocket, const QString& fileName, const QString& address, quint16 port) {
+		QTcpSocket* replicaSocket = nullptr;
+
+		for (QTcpSocket* socket : replicaSockets) {
+			if (socket->peerAddress().toString() == address && socket->peerPort() == port) {
+				replicaSocket = socket;
+				break;
+			}
+		}
+
+		if (!replicaSocket) {
+			logger->log("There is no connected replica with  file: " + fileName);
+			return false;
+		}
+
+		QDataStream out(replicaSocket);
+		out << QString(COMMAND_REPLICA_DOWNLOAD) << fileName;
+		replicaSocket->flush();
+
+		if (!replicaSocket->waitForReadyRead(3000)) {
+			logger->log("No response from replica at " + address + ":" + QString::number(port));
+			return false;
+		}
+
+		QDataStream replicaIn(replicaSocket);
+		QString response;
+		replicaIn >> response;
+
+		if (response != RESPONSE_DOWNLOAD_READY) {
+			logger->log("Replica not ready for download or file not found: " + fileName);
+			return false;
+		}
+
+		QDataStream replicaOut(replicaSocket);
+		replicaOut << QString(RESPONSE_READY_FOR_DATA);
+		replicaSocket->flush();
+
+		qint64 fileSize;
+		replicaIn >> fileSize;
+
+		QDataStream clientOut(clientSocket);
+		clientOut << QString(RESPONSE_DOWNLOAD_READY) << fileSize;
+		clientSocket->flush();
+
+		if (!clientSocket->waitForReadyRead(3000)) {
+			logger->log("Client not ready to receive file.");
+			return false;
+		}
+
+		QString clientResponse;
+		QDataStream clientIn(clientSocket);
+		clientIn >> clientResponse;
+
+		if (clientResponse != RESPONSE_READY_FOR_DATA) {
+			logger->log("Client rejected file download.");
+			return false;
+		}
+
+		qint64 bytesReceived = 0;
+		const qint64 chunkSize = CHUNK_SIZE;
+
+		while (bytesReceived < fileSize) {
+			if (!replicaSocket->waitForReadyRead(3000)) {
+				logger->log("Timeout while receiving file data from replica.");
+				return false;
+			}
+
+			QByteArray chunk;
+			replicaIn >> chunk;
+
+			clientOut << chunk;
+			clientSocket->flush();
+
+			bytesReceived += chunk.size();
+
+			replicaOut << QString(RESPONSE_CHUNK_RECEIVED);
+			replicaSocket->flush();
+
+			if (!clientSocket->waitForReadyRead(3000)) {
+				logger->log("Client did not acknowledge chunk.");
+				return false;
+			}
+
+			clientIn >> clientResponse;
+			if (clientResponse != RESPONSE_CHUNK_RECEIVED) {
+				logger->log("Client failed to acknowledge received chunk.");
+				return false;
+			}
+		}
+
+		logger->log("File fetched successfully from replica and sent to client: " + fileName);
+		return true;
+	}
 
 
 	void MainServer::handleClientData() {
