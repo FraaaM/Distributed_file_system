@@ -15,6 +15,12 @@ namespace SHIZ{
 			NetworkManager* networkManager;
 			QString currentLogin;
 
+            bool canChange;
+            bool canDownload;
+            bool canUpload;
+            bool canSome;
+
+
 			QLabel* statusLabel;
 			QLineEdit* filterLineEdit;
 			QTableWidget* fileTableWidget;

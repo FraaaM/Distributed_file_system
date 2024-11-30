@@ -7,6 +7,7 @@
 #include "mainwidget.hpp"
 #include "networkmanager.hpp"
 #include "registrationwidget.hpp"
+#include "adminwidget.hpp"
 
 namespace SHIZ{
 	class Window: public QWidget{
@@ -21,6 +22,7 @@ namespace SHIZ{
 			LoginWidget* loginWidget;
 			MainWidget* mainWidget;
 			RegistrationWidget* registrationWidget;
+            AdminWidget* adminWidget;
 
 			Logger* logger;
 
@@ -29,11 +31,13 @@ namespace SHIZ{
 
 		private slots:
 			void onConnectionSuccessful (const QString &host, quint16 port);
-			void onLoginSuccessful(const QString& login);
+            void onUserLoginSuccessful(const QString& login);
+             void onAdminLoginSuccessful(const QString& login);
 			void onRegistrationSuccessful(const QString& login);
 			void onSwitchToConnectionWindow();
 			void onSwitchToLoginWindow();
 			void onSwitchToMainWindow();
+            void onSwitchToAdminWindow();
 			void onSwitchToRegistrationWindow();
 	};
 }

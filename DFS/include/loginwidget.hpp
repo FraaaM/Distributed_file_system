@@ -25,7 +25,8 @@ namespace SHIZ{
 			LoginWidget(Logger* logger, NetworkManager* manager, QWidget* parent = nullptr);
 
 		signals:
-			void loginSuccessful(const QString& login);
+            void loginUserSuccessful(const QString& login);
+             void loginAdminSuccessful(const QString& login);
 			void showConnectionWindow();
 			void showRegistrationWindow();
 

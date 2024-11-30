@@ -28,10 +28,14 @@ namespace SHIZ{
 			void incomingConnection(qintptr socketDescriptor) override;
 
 		private:
+            QStringList memberOfGroups(const QString& userName);
 			bool distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate);
 			void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName);
+            void processUpdateUserRequest(QTcpSocket* clientSocket, const QString& userName, const QString& key, const QString& value);
+            void processDeleteUserRequest(QTcpSocket* clientSocket, const QString& userName);
 			void processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName);
-			void processFileListRequest(QTcpSocket* clientSocket);
+            void processFileListRequest(QTcpSocket* clientSocket, const QString& userName);
+            void processUserListRequest(QTcpSocket* clientSocket);
 			void processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts);
 			void processRegistrationRequest(QTcpSocket* clientSocket, const QStringList& parts);
 			void processReplicaConnection(QTcpSocket* replicaSocket);

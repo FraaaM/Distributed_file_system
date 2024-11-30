@@ -143,9 +143,61 @@ namespace SHIZ {
 		return true;
 	}
 
-	QStringList NetworkManager::requestFileList(){
+    bool NetworkManager::deleteUser(const QString& userName){
+        emit statusMessage("Requesting user deletion...");
+        logger->log("Requesting user deletion...");
+
+
+        QDataStream out(tcpSocket);
+        out << QString(COMMAND_DELETE_USER) << userName;
+        tcpSocket->flush();
+
+        if (tcpSocket->waitForReadyRead(3000)) {
+            QDataStream in(tcpSocket);
+            QString response;
+            in >> response;
+
+            bool success = response == RESPONSE_DELETE_SUCCESS;
+            emit statusMessage(success ? "User deleted successfully." : "User deletion failed.");
+            logger->log(success ? "User deleted successfully." : "User deletion failed.");
+            return success;
+        }
+        emit statusMessage("Server response timed out.");
+        logger->log("Server response timed out.");
+        return false;
+    }
+
+    bool NetworkManager::updateUser(const QString &userName, const QString &key, const QString &value){
+        emit statusMessage("Requesting user updating...");
+        logger->log("Requesting user updating...");
+
+
+        QDataStream out(tcpSocket);
+        out << QString(COMMAND_UPDATE_USER) << userName << key << value;
+        tcpSocket->flush();
+
+        if (tcpSocket->waitForReadyRead(3000)) {
+            QDataStream in(tcpSocket);
+            QString response;
+            in >> response;
+
+            bool success = response == RESPONSE_UPDATE_USER_SUCCESS;
+            emit statusMessage(success ? "User updated successfully." : "User update failed.");
+            logger->log(success ? "User updated successfully." : "User update failed.");
+            return success;
+        }
+        emit statusMessage("Server response timed out.");
+        logger->log("Server response timed out.");
+        return false;
+    }
+
+    bool NetworkManager::addUser(const QString& userName){
+        return true;
+    }
+
+    QStringList NetworkManager::requestFileList(const QString &userName){
 		QDataStream out(tcpSocket);
-		out << QString(COMMAND_GET_FILES);
+        out << QString(COMMAND_GET_FILES) << userName;
 		tcpSocket->flush();
 
 		if (tcpSocket->waitForReadyRead(3000)) {
@@ -162,7 +214,25 @@ namespace SHIZ {
 		return QStringList();
 	}
 
-	bool NetworkManager::sendLoginRequest(const QString& login, const QString& password) {
+    QStringList NetworkManager::requestUserList(){
+        QDataStream out(tcpSocket);
+        out << QString(COMMAND_GET_USERS);
+        tcpSocket->flush();
+
+        if (tcpSocket->waitForReadyRead(3000)) {
+            QDataStream in(tcpSocket);
+            QString response;
+            QStringList userList;
+
+            in >> response;
+            if (response == RESPONSE_USERS_LIST) {
+                in >> userList;
+                return userList;
+            }
+        }
+        return QStringList();
+    }
+    std::string NetworkManager::sendLoginRequest(const QString& login, const QString& password) {
 		QDataStream out(tcpSocket);
 		out << QString(COMMAND_LOGIN) << login << password;
 		tcpSocket->flush();
@@ -172,15 +242,17 @@ namespace SHIZ {
 			QString response;
 			in >> response;
 
-			if (response == RESPONSE_LOGIN_SUCCESS) {
-				return true;
-			} else {
+            if (response == RESPONSE_LOGIN_USER_SUCCESS) {
+                return "user";
+            }else if(response == RESPONSE_LOGIN_ADMIN_SUCCESS){
+                return "admin";
+            }else {
 				QMessageBox::warning(nullptr, "Login error", "Incorrect username or password.");
 			}
 		} else {
 			QMessageBox::warning(nullptr, "Network error", "Failed to connect to the server.");
 		}
-		return false;
+        return "fail";
 	}
 
 	bool NetworkManager::sendRegistrationRequest(const QString& login, const QString& password, const QString& confirmPassword) {

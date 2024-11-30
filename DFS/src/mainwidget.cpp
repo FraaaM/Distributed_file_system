@@ -21,8 +21,8 @@ namespace SHIZ{
 		connect(filterLineEdit, &QLineEdit::textChanged, this, &MainWidget::onFilterTextChanged);
 
 		fileTableWidget = new QTableWidget(this);
-		fileTableWidget->setColumnCount(4);
-		fileTableWidget->setHorizontalHeaderLabels({"File Name", "Owner", "Size (bytes)", "Upload Date"});
+        fileTableWidget->setColumnCount(5);
+        fileTableWidget->setHorizontalHeaderLabels({"File Name", "Owner", "Size (bytes)", "Upload Date", "Group"});
 		fileTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 		fileTableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
 		fileTableWidget->setSortingEnabled(true);
@@ -106,21 +106,23 @@ namespace SHIZ{
 	}
 
 	void MainWidget::onRefreshButtonClicked(){
-		QStringList files = networkManager->requestFileList();
+        QStringList files = networkManager->requestFileList(currentLogin);
 
 		fileTableWidget->setRowCount(files.size());
 		for (int i = 0; i < files.size(); ++i) {
 			QStringList fileInfo = files[i].split("|");
-			if (fileInfo.size() == 4) {
+            if (fileInfo.size() == 5) {
 				QTableWidgetItem* fileNameItem = new QTableWidgetItem(fileInfo[0]);
 				QTableWidgetItem* ownerItem = new QTableWidgetItem(fileInfo[1]);
 				QTableWidgetItem* sizeItem = new QTableWidgetItem(fileInfo[2]);
 				QTableWidgetItem* dateItem = new QTableWidgetItem(fileInfo[3]);
+                QTableWidgetItem* groupItem = new QTableWidgetItem(fileInfo[4]);
 
 				fileTableWidget->setItem(i, 0, fileNameItem);
 				fileTableWidget->setItem(i, 1, ownerItem);
 				fileTableWidget->setItem(i, 2, sizeItem);
 				fileTableWidget->setItem(i, 3, dateItem);
+                fileTableWidget->setItem(i, 4, groupItem);
 			}
 		}
 	}
