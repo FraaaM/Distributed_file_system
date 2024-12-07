@@ -10,7 +10,6 @@
 
 #include "logger.hpp"
 #include "mainserver.hpp"
-#include "addadmin.hpp"
 
 namespace SHIZ{
 	class MainWindow : public QMainWindow {
