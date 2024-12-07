@@ -2,6 +2,7 @@
 #include <QMessageBox>
 #include <QVBoxLayout>
 #include <QHeaderView>
+#include <iostream>
 
 #include "mainwidget.hpp"
 
@@ -59,14 +60,22 @@ namespace SHIZ{
 	void MainWidget::onDeleteButtonClicked() {
 		int selectedRow = fileTableWidget->currentRow();
 		if (selectedRow >= 0) {
-			QString fileName = fileTableWidget->item(selectedRow, 0)->text();
-			bool success = networkManager->deleteFile(fileName);
-			if (success) {
-				QMessageBox::information(this, "Delete", "File deleted successfully.");
-				onRefreshButtonClicked();
-			} else {
-				QMessageBox::warning(this, "Delete", "File deletion failed.");
-			}
+            QString fileName = fileTableWidget->item(selectedRow, 0)->text();
+            QString groupOfFile = networkManager->getFileInfo(fileName);
+            QString groupOfUser = networkManager->getUserInfo(currentLogin).split("|")[1];
+
+            if((groupOfFile == groupOfUser && ACCESS_DELETE_GROUP) || (groupOfFile != groupOfUser && ACCESS_DELETE_ANOTHER)){
+                bool success = networkManager->deleteFile(fileName);
+                if (success) {
+                    QMessageBox::information(this, "Delete", "File deleted successfully.");
+                    onRefreshButtonClicked();
+                } else {
+                    QMessageBox::warning(this, "Delete", "File deletion failed.");
+                }
+            }else{
+                QMessageBox::warning(this, "Delete", "You don't have right delete this file.");
+            }
+
 		} else {
 			QMessageBox::warning(this, "Delete", "No file selected.");
 		}
@@ -74,19 +83,27 @@ namespace SHIZ{
 
 	void MainWidget::onDownloadButtonClicked(){
 		int selectedRow = fileTableWidget->currentRow();
-		if (selectedRow >= 0) {
-			QString fileName = fileTableWidget->item(selectedRow, 0)->text();
-			QString directory = QFileDialog::getExistingDirectory(this, "Select Download Folder");
 
-			if (!directory.isEmpty()) {
-				QString filePath = directory + "/" + fileName;
-				bool success = networkManager->downloadFile(filePath);
-				if (success) {
-					QMessageBox::information(this, "Download", "File downloaded successfully.");
-				} else {
-					QMessageBox::warning(this, "Download", "File download failed.");
-				}
-			}
+		if (selectedRow >= 0) {
+            QString fileName = fileTableWidget->item(selectedRow, 0)->text();
+            QString groupOfFile = networkManager->getFileInfo(fileName);
+            QString groupOfUser = networkManager->getUserInfo(currentLogin).split("|")[1];
+
+            if((groupOfFile == groupOfUser && ACCESS_READ_GROUP) || (groupOfFile != groupOfUser && ACCESS_READ_ANOTHER)){
+                QString directory = QFileDialog::getExistingDirectory(this, "Select Download Folder");
+
+                if (!directory.isEmpty()) {
+                    QString filePath = directory + "/" + fileName;
+                    bool success = networkManager->downloadFile(filePath);
+                    if (success) {
+                        QMessageBox::information(this, "Download", "File downloaded successfully.");
+                    } else {
+                        QMessageBox::warning(this, "Download", "File download failed.");
+                    }
+                }
+            }else{
+                QMessageBox::warning(this, "Download", "You don't have right download this file.");
+            }
 		} else {
 			QMessageBox::warning(this, "Download", "No file selected.");
 		}
@@ -115,7 +132,7 @@ namespace SHIZ{
 				QTableWidgetItem* fileNameItem = new QTableWidgetItem(fileInfo[0]);
 				QTableWidgetItem* ownerItem = new QTableWidgetItem(fileInfo[1]);
 				QTableWidgetItem* sizeItem = new QTableWidgetItem(fileInfo[2]);
-				QTableWidgetItem* dateItem = new QTableWidgetItem(fileInfo[3]);
+                QTableWidgetItem* dateItem = new QTableWidgetItem(fileInfo[3]);
                 QTableWidgetItem* groupItem = new QTableWidgetItem(fileInfo[4]);
 
 				fileTableWidget->setItem(i, 0, fileNameItem);
@@ -132,6 +149,10 @@ namespace SHIZ{
 	}
 
 	void MainWidget::onUploadButtonClicked(){
+        if(!ACCESS_WRITE_SELF){
+            QMessageBox::warning(this, "Upload", "You don't have right upload files.");
+            return;
+        }
 		QString filePath = QFileDialog::getOpenFileName(this, "Select a file to upload");
 		if (filePath.isEmpty()) return;
 		QString fileName = QFileInfo(filePath).fileName();
@@ -162,4 +183,29 @@ namespace SHIZ{
 			QMessageBox::warning(this, "Upload", "File upload failed.");
 		}
 	}
+    void MainWidget::setRights(){
+        std::string rights = networkManager->getUserInfo(currentLogin).split("|")[0].toStdString();
+
+        for(int i = 0; i < 3; i++){
+            int right = rights[i] - 48;
+
+            if(right == 0){
+                continue;
+            }
+
+            if(i == 0){
+                ACCESS_READ_SELF = right & 4;
+                ACCESS_WRITE_SELF = right & 2;
+                ACCESS_DELETE_SELF = right & 1;
+            }else if(i == 1){
+                ACCESS_READ_GROUP = right & 4;
+                ACCESS_WRITE_GROUP = right & 2;
+                ACCESS_DELETE_GROUP = right & 1;
+            }else if(i == 2){
+                ACCESS_READ_ANOTHER = right & 4;
+                ACCESS_WRITE_ANOTHER =  right & 2;
+                ACCESS_DELETE_ANOTHER = right & 1;
+            }
+        }
+    }
 }

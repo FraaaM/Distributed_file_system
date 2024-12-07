@@ -29,6 +29,9 @@ namespace SHIZ{
 		public:
 			Window(Logger* logger, NetworkManager* networkManager, QWidget* parent = nullptr);
 
+        signals:
+            void switchOnMainWindow();
+
 		private slots:
 			void onConnectionSuccessful (const QString &host, quint16 port);
             void onUserLoginSuccessful(const QString& login);

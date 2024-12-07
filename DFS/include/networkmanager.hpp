@@ -42,6 +42,11 @@ namespace SHIZ {
 		void setHostAndPort(const QString& host, quint16 port);
 		bool uploadFile(const QString& filePath, const QString& owner);
 
+
+        QString getUserInfo(const QString &userName);
+
+        QString getFileInfo(const QString &fileName);
+
 	signals:
 		void statusMessage(const QString& message);
 

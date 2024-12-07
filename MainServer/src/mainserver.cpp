@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QSqlError>
 #include <QSqlQuery>
+#include<QDebug>
 
 #include "mainserver.hpp"
 #include "servermacros.hpp"
@@ -46,7 +47,33 @@ namespace SHIZ {
 				   FIELD_FILE_UPLOAD_DATE " TEXT)");
 		logger->log("Query CREATE TABLE last error: " + query.lastError().text());
 
-		logger->log("Server initialized successfully.");
+        QString username("admin");
+
+        query.prepare("SELECT " FIELD_USER_USERNAME " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
+        query.bindValue(":username", username );
+
+        if(query.next()){
+            QString password("!For@each");
+            QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
+            QString isAdmin("true");
+            QString group("1");
+            QString rights("777");
+
+
+            query.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ", " FIELD_USER_IS_ADMIN ", " FIELD_FILE_GROUP_ID ", " FIELD_USER_RIGHTS ") VALUES (?, ?, ?, ?, ?)");
+            query.addBindValue(username);
+            query.addBindValue(hashedPassword);
+            query.addBindValue(isAdmin);
+            query.addBindValue(group);
+            query.addBindValue(rights);
+
+            if(!query.exec()){
+                logger->log("Query INSERT ADMIN last error: " + query.lastError().text());
+            }
+        }
+
+
+        logger->log("Server initialized successfully.");
 	}
 
 	MainServer::~MainServer() {
@@ -354,25 +381,9 @@ namespace SHIZ {
 		out << QString(RESPONSE_DOWNLOAD_FAILED);
 		clientSocket->flush();
 		logger->log("Failed to fetch file from all replicas: " + fileName);
-	}
-
-    QStringList MainServer::memberOfGroups(const QString& userName){
-        QStringList groups;
-
-        QSqlQuery query("SELECT " FIELD_USER_GROUP_ID " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
-        query.bindValue(":username", userName);
-
-        while (query.next()) {
-            QString group = query.value(0).toString();
-            groups << group;
-        }
-
-        return groups;
     }
 
     void MainServer::processFileListRequest(QTcpSocket* clientSocket, const QString& userName) {
-        QStringList groups = memberOfGroups(userName);
-
         QSqlQuery query("SELECT " FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ", " FIELD_FILE_GROUP_ID " FROM " TABLE_FILES );
 
         QStringList fileList;
@@ -489,6 +500,43 @@ namespace SHIZ {
 
         out << QString(RESPONSE_UPDATE_USER_SUCCESS);
         clientSocket->flush();
+    }
+    void MainServer::processGetUserInfoRequest(QTcpSocket *clientSocket, const QString &userName){
+        QDataStream out(clientSocket);
+
+        QSqlQuery getUserInfoQuery;
+        getUserInfoQuery.prepare("SELECT " FIELD_USER_RIGHTS ", " FIELD_USER_GROUP_ID " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
+        getUserInfoQuery.bindValue(":username", userName);
+
+        if (!getUserInfoQuery.exec()) {
+            logger->log("Error getting rights of user:" + getUserInfoQuery.lastError().text());
+            return;
+        }
+
+        if(getUserInfoQuery.next()) {
+            QString userInfo = getUserInfoQuery.value(0).toString() + "|"
+                               + getUserInfoQuery.value(1).toString();
+            out  << QString(RESPONSE_USER_INFO) << userInfo;
+            clientSocket->flush();
+        }
+    }
+    void MainServer::processGetFileInfoRequest(QTcpSocket *clientSocket, const QString &fileName){
+        QDataStream out(clientSocket);
+
+        QSqlQuery getGroupOfFile;
+        getGroupOfFile.prepare("SELECT " FIELD_FILE_GROUP_ID " FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
+        getGroupOfFile.bindValue(":filename", fileName);
+        if (!getGroupOfFile.exec()) {
+            logger->log("Error getting group of file:" + getGroupOfFile.lastError().text());
+
+            return;
+        }
+        if(getGroupOfFile.next()) {
+            QString fileInfo = getGroupOfFile.value(0).toString();
+
+            out  << QString(RESPONSE_FILE_INFO) << fileInfo;
+            clientSocket->flush();
+        }
     }
 
 	void MainServer::processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize) {
@@ -711,7 +759,7 @@ namespace SHIZ {
 			QString fileName;
 			in >> fileName;
 			processDeleteFileRequest(clientSocket, fileName);
-        }else if(command == COMMAND_DELETE_USER ){
+        }else if(command == COMMAND_DELETE_USER){
             QString userName;
             in >> userName;
             processDeleteUserRequest(clientSocket, userName);
@@ -719,6 +767,14 @@ namespace SHIZ {
             QString userName, key, value;
             in >> userName >> key >> value;
             processUpdateUserRequest(clientSocket, userName, key, value);
+        }else if(command == COMMAND_GET_FILE_INFO){
+            QString fileName;
+            in >> fileName;
+            processGetFileInfoRequest(clientSocket, fileName);
+        }else if(command == COMMAND_GET_USER_INFO){
+            QString userName;
+            in >> userName;
+            processGetUserInfoRequest(clientSocket, userName);
         }
 	}
 

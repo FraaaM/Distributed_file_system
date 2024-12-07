@@ -28,9 +28,8 @@ namespace SHIZ{
 			void incomingConnection(qintptr socketDescriptor) override;
 
 		private:
-            QStringList memberOfGroups(const QString& userName);
 			bool distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate);
-			void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName);
+            void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName);
             void processUpdateUserRequest(QTcpSocket* clientSocket, const QString& userName, const QString& key, const QString& value);
             void processDeleteUserRequest(QTcpSocket* clientSocket, const QString& userName);
 			void processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName);
@@ -41,6 +40,8 @@ namespace SHIZ{
 			void processReplicaConnection(QTcpSocket* replicaSocket);
 			void processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize);
 			bool tryDownloadFromReplica(QTcpSocket* clientSocket, const QString& fileName, const QString& address, quint16 port);
+            void processGetFileInfoRequest(QTcpSocket* clientSocket, const QString& fileName);
+            void processGetUserInfoRequest(QTcpSocket* clientSocket, const QString& userName);
 
 		signals:
 			void replicaDisconnected(const QString& replicaAddress);

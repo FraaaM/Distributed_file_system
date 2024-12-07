@@ -15,10 +15,17 @@ namespace SHIZ{
 			NetworkManager* networkManager;
 			QString currentLogin;
 
-            bool canChange;
-            bool canDownload;
-            bool canUpload;
-            bool canSome;
+            bool ACCESS_WRITE_SELF = false;
+            bool ACCESS_READ_SELF = false;
+            bool ACCESS_DELETE_SELF = false;
+
+            bool ACCESS_WRITE_GROUP = false;
+            bool ACCESS_READ_GROUP = false;
+            bool ACCESS_DELETE_GROUP = false;
+
+            bool ACCESS_WRITE_ANOTHER = false;
+            bool ACCESS_READ_ANOTHER = false;
+            bool ACCESS_DELETE_ANOTHER = false;
 
 
 			QLabel* statusLabel;
@@ -40,7 +47,10 @@ namespace SHIZ{
 		signals:
 			void showLoginWindow();
 
-		private slots:
+        public slots:
+            void setRights();
+
+        private slots:
 			void onDeleteButtonClicked();
 			void onDownloadButtonClicked();
 			void onFilterTextChanged(const QString& text);

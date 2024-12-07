@@ -40,6 +40,8 @@ namespace SHIZ{
 		connect(registrationWidget, &RegistrationWidget::registrationSuccessful, this, &Window::onRegistrationSuccessful);
 		connect(registrationWidget, &RegistrationWidget::showLoginWindow, this, &Window::onSwitchToLoginWindow);
 		connect(registrationWidget, &RegistrationWidget::showConnectionWindow, this, &Window::onSwitchToConnectionWindow);
+
+         connect(this, &Window::switchOnMainWindow, mainWidget, &MainWidget::setRights);
 	}
 
 
@@ -72,6 +74,7 @@ namespace SHIZ{
 
 	void Window::onSwitchToMainWindow() {
 		stackedWidget->setCurrentWidget(mainWidget);
+        emit switchOnMainWindow();
 	}
     void Window::onSwitchToAdminWindow() {
         stackedWidget->setCurrentWidget(adminWidget);

@@ -6,9 +6,11 @@
 #include <QStatusBar>
 #include <QListWidget>
 #include <QVBoxLayout>
+#include <QDialog>
 
 #include "logger.hpp"
 #include "mainserver.hpp"
+#include "addadmin.hpp"
 
 namespace SHIZ{
 	class MainWindow : public QMainWindow {

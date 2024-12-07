@@ -214,6 +214,44 @@ namespace SHIZ {
 		return QStringList();
 	}
 
+    QString NetworkManager::getUserInfo(const QString &userName){
+        QDataStream out(tcpSocket);
+        out << QString(COMMAND_GET_USER_INFO) << userName;
+        tcpSocket->flush();
+
+        if (tcpSocket->waitForReadyRead(3000)) {
+            QDataStream in(tcpSocket);
+            QString response;
+            QString userInfo;
+
+            in >> response;
+            if (response == RESPONSE_USER_INFO) {
+                in >> userInfo;
+                return userInfo;
+            }
+        }
+        return QString();
+    }
+
+    QString NetworkManager::getFileInfo(const QString &fileName){
+        QDataStream out(tcpSocket);
+        out << QString(COMMAND_GET_FILE_INFO) << fileName;
+        tcpSocket->flush();
+
+        if (tcpSocket->waitForReadyRead(3000)) {
+            QDataStream in(tcpSocket);
+            QString response;
+            QString groupFile;
+
+            in >> response;
+            if (response == RESPONSE_FILE_INFO) {
+                in >> groupFile;
+                return groupFile;
+            }
+        }
+        return QString();
+    }
+
     QStringList NetworkManager::requestUserList(){
         QDataStream out(tcpSocket);
         out << QString(COMMAND_GET_USERS);
@@ -360,7 +398,6 @@ namespace SHIZ {
 
 		return false;
 	}
-
 
 	void NetworkManager::onConnected() {
 		reconnectTimer->stop();
