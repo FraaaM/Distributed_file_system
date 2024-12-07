@@ -48,30 +48,23 @@ namespace SHIZ {
 		logger->log("Query CREATE TABLE last error: " + query.lastError().text());
 
         QString username("admin");
-
-        query.prepare("SELECT " FIELD_USER_USERNAME " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
-        query.bindValue(":username", username );
-
-        if(query.next()){
-            QString password("!For@each");
-            QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
-            QString isAdmin("true");
-            QString group("1");
-            QString rights("777");
+        QString password("!For@each");
+        QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
+        QString isAdmin("true");
+        QString group("1");
+        QString rights("777");
 
 
-            query.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ", " FIELD_USER_IS_ADMIN ", " FIELD_FILE_GROUP_ID ", " FIELD_USER_RIGHTS ") VALUES (?, ?, ?, ?, ?)");
-            query.addBindValue(username);
-            query.addBindValue(hashedPassword);
-            query.addBindValue(isAdmin);
-            query.addBindValue(group);
-            query.addBindValue(rights);
+        query.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ", " FIELD_USER_IS_ADMIN ", " FIELD_FILE_GROUP_ID ", " FIELD_USER_RIGHTS ") VALUES (?, ?, ?, ?, ?)");
+        query.addBindValue(username);
+        query.addBindValue(hashedPassword);
+        query.addBindValue(isAdmin);
+        query.addBindValue(group);
+        query.addBindValue(rights);
 
-            if(!query.exec()){
-                logger->log("Query INSERT ADMIN last error: " + query.lastError().text());
-            }
+        if(!query.exec()){
+            logger->log("Query INSERT ADMIN last error: " + query.lastError().text());
         }
-
 
         logger->log("Server initialized successfully.");
 	}
