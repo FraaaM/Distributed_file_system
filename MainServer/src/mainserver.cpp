@@ -28,8 +28,8 @@ namespace SHIZ {
 				   FIELD_USER_USERNAME " TEXT UNIQUE, "
                         FIELD_USER_PASSWORD " TEXT, "
                         FIELD_USER_IS_ADMIN " NUMERIC,"
-                       FIELD_USER_GROUP_ID " INTEGER,"
-                       FIELD_USER_RIGHTS " INTEGER)"
+                       FIELD_USER_GROUP_ID " TEXT,"
+                       FIELD_USER_RIGHTS " TEXT)"
                    );
 		query.exec("CREATE TABLE IF NOT EXISTS " TABLE_FILES " ("
 				   FIELD_FILE_ID " INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -52,7 +52,7 @@ namespace SHIZ {
         QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
         QString isAdmin("true");
         QString group("1");
-        QString rights("777");
+        QString rights("rwd");
 
 
         query.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ", " FIELD_USER_IS_ADMIN ", " FIELD_FILE_GROUP_ID ", " FIELD_USER_RIGHTS ") VALUES (?, ?, ?, ?, ?)");
@@ -377,7 +377,38 @@ namespace SHIZ {
     }
 
     void MainServer::processFileListRequest(QTcpSocket* clientSocket, const QString& userName) {
-        QSqlQuery query("SELECT " FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ", " FIELD_FILE_GROUP_ID " FROM " TABLE_FILES );
+        QSqlQuery userGroupId;
+        userGroupId.prepare("SELECT " FIELD_USER_GROUP_ID " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
+        userGroupId.bindValue(":username", userName);
+
+        if (!userGroupId.exec()) {
+            logger->log("Failed to get user groups: " + userGroupId.lastError().text());
+            return;
+        }
+
+        QStringList groupId;
+
+        while(userGroupId.next()){
+            groupId << userGroupId.value(0).toString().split(",");
+        }
+
+        QString q = "SELECT " FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ", " FIELD_FILE_GROUP_ID " FROM " TABLE_FILES " WHERE ";
+
+        QStringList conditions;
+        for(const QString& elem : groupId){
+            conditions << QString(FIELD_FILE_GROUP_ID " LIKE '%%,%1'").arg(elem);
+            conditions << QString(FIELD_FILE_GROUP_ID " = %1").arg(elem);
+        }
+
+        q += conditions.join(" OR ");
+
+        QSqlQuery query;
+        query.prepare(q);
+
+        if (!query.exec()) {
+            logger->log("Failed to execute query: " + query.lastError().text());
+            return;
+        }
 
         QStringList fileList;
 
@@ -448,7 +479,7 @@ namespace SHIZ {
 			logger->log("Registration failed: user already exists.");
 		} else {
 			QSqlQuery insertQuery;
-            insertQuery.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ", " FIELD_USER_GROUP_ID ", " FIELD_USER_RIGHTS ") VALUES (?, ?, 1, 777)");
+            insertQuery.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ", " FIELD_USER_GROUP_ID ", " FIELD_USER_RIGHTS ") VALUES (?, ?, 1, 'rwd')");
 			insertQuery.addBindValue(username);
 			insertQuery.addBindValue(hashedPassword);
 
@@ -474,25 +505,10 @@ namespace SHIZ {
 
             out << QString(RESPONSE_UPDATE_USER_FAILED);
             clientSocket->flush();
-            return;
-        }
-
-        QSqlQuery updateFilesQuery;
-        if(key == FIELD_USER_GROUP_ID)
-            updateFilesQuery.prepare("UPDATE " TABLE_FILES " SET " FIELD_FILE_GROUP_ID " = :value WHERE " FIELD_FILE_OWNER " = :username");
-        updateFilesQuery.bindValue(":value", value);
-        updateFilesQuery.bindValue(":username", userName);
-
-        if (!updateFilesQuery.exec()) {
-            logger->log("Error updating an files data:" + updateFilesQuery.lastError().text());
-
-            out << QString(RESPONSE_UPDATE_USER_FAILED);
+        }else{
+            out << QString(RESPONSE_UPDATE_USER_SUCCESS);
             clientSocket->flush();
-            return;
         }
-
-        out << QString(RESPONSE_UPDATE_USER_SUCCESS);
-        clientSocket->flush();
     }
     void MainServer::processGetUserInfoRequest(QTcpSocket *clientSocket, const QString &userName){
         QDataStream out(clientSocket);
@@ -517,7 +533,7 @@ namespace SHIZ {
         QDataStream out(clientSocket);
 
         QSqlQuery getGroupOfFile;
-        getGroupOfFile.prepare("SELECT " FIELD_FILE_GROUP_ID " FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
+        getGroupOfFile.prepare("SELECT " FIELD_FILE_GROUP_ID " FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename AND ");
         getGroupOfFile.bindValue(":filename", fileName);
         if (!getGroupOfFile.exec()) {
             logger->log("Error getting group of file:" + getGroupOfFile.lastError().text());
@@ -604,7 +620,7 @@ namespace SHIZ {
 		query.addBindValue(owner);
 		query.addBindValue(fileSize);
 		query.addBindValue(uploadDate);
-         query.addBindValue(groupId);
+        query.addBindValue(groupId);
 
 		if (!query.exec()) {
 			out << QString(RESPONSE_UPLOAD_FAILED);
@@ -630,7 +646,7 @@ namespace SHIZ {
 
 		if (!replicaSocket) {
 			logger->log("There is no connected replica with  file: " + fileName);
-			return false;
+            return false;
 		}
 
 		QDataStream out(replicaSocket);

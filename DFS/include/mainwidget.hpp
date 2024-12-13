@@ -15,18 +15,9 @@ namespace SHIZ{
 			NetworkManager* networkManager;
 			QString currentLogin;
 
-            bool ACCESS_WRITE_SELF = false;
-            bool ACCESS_READ_SELF = false;
-            bool ACCESS_DELETE_SELF = false;
-
-            bool ACCESS_WRITE_GROUP = false;
-            bool ACCESS_READ_GROUP = false;
-            bool ACCESS_DELETE_GROUP = false;
-
-            bool ACCESS_WRITE_ANOTHER = false;
-            bool ACCESS_READ_ANOTHER = false;
-            bool ACCESS_DELETE_ANOTHER = false;
-
+            bool ACCESS_WRITE = false;
+            bool ACCESS_READ = false;
+            bool ACCESS_DELETE = false;
 
 			QLabel* statusLabel;
 			QLineEdit* filterLineEdit;

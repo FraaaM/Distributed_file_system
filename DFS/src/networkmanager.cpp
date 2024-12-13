@@ -182,6 +182,7 @@ namespace SHIZ {
             in >> response;
 
             bool success = response == RESPONSE_UPDATE_USER_SUCCESS;
+
             emit statusMessage(success ? "User updated successfully." : "User update failed.");
             logger->log(success ? "User updated successfully." : "User update failed.");
             return success;

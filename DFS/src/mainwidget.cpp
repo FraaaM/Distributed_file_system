@@ -64,7 +64,7 @@ namespace SHIZ{
             QString groupOfFile = networkManager->getFileInfo(fileName);
             QString groupOfUser = networkManager->getUserInfo(currentLogin).split("|")[1];
 
-            if((groupOfFile == groupOfUser && ACCESS_DELETE_GROUP) || (groupOfFile != groupOfUser && ACCESS_DELETE_ANOTHER)){
+            if(ACCESS_DELETE){
                 bool success = networkManager->deleteFile(fileName);
                 if (success) {
                     QMessageBox::information(this, "Delete", "File deleted successfully.");
@@ -86,10 +86,8 @@ namespace SHIZ{
 
 		if (selectedRow >= 0) {
             QString fileName = fileTableWidget->item(selectedRow, 0)->text();
-            QString groupOfFile = networkManager->getFileInfo(fileName);
-            QString groupOfUser = networkManager->getUserInfo(currentLogin).split("|")[1];
 
-            if((groupOfFile == groupOfUser && ACCESS_READ_GROUP) || (groupOfFile != groupOfUser && ACCESS_READ_ANOTHER)){
+            if(ACCESS_READ){
                 QString directory = QFileDialog::getExistingDirectory(this, "Select Download Folder");
 
                 if (!directory.isEmpty()) {
@@ -149,7 +147,7 @@ namespace SHIZ{
 	}
 
 	void MainWidget::onUploadButtonClicked(){
-        if(!ACCESS_WRITE_SELF){
+        if(!ACCESS_WRITE){
             QMessageBox::warning(this, "Upload", "You don't have right upload files.");
             return;
         }
@@ -186,25 +184,15 @@ namespace SHIZ{
     void MainWidget::setRights(){
         std::string rights = networkManager->getUserInfo(currentLogin).split("|")[0].toStdString();
 
-        for(int i = 0; i < 3; i++){
-            int right = rights[i] - 48;
+        for(int i = 0; i < rights.size(); i++){
+            char right = rights[i];
 
-            if(right == 0){
-                continue;
-            }
-
-            if(i == 0){
-                ACCESS_READ_SELF = right & 4;
-                ACCESS_WRITE_SELF = right & 2;
-                ACCESS_DELETE_SELF = right & 1;
-            }else if(i == 1){
-                ACCESS_READ_GROUP = right & 4;
-                ACCESS_WRITE_GROUP = right & 2;
-                ACCESS_DELETE_GROUP = right & 1;
-            }else if(i == 2){
-                ACCESS_READ_ANOTHER = right & 4;
-                ACCESS_WRITE_ANOTHER =  right & 2;
-                ACCESS_DELETE_ANOTHER = right & 1;
+            if(right == 'r'){
+                ACCESS_READ = true;
+            }else if(right == 'w'){
+                ACCESS_WRITE = true;
+            }else if(right == 'd'){
+                ACCESS_DELETE = true;
             }
         }
     }
