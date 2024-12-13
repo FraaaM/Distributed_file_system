@@ -201,6 +201,7 @@ namespace SHIZ {
         out << QString(COMMAND_GET_FILES) << userName;
 		tcpSocket->flush();
 
+
 		if (tcpSocket->waitForReadyRead(3000)) {
 			QDataStream in(tcpSocket);
 			QString response;
@@ -210,7 +211,11 @@ namespace SHIZ {
 			if (response == RESPONSE_FILES_LIST) {
 				in >> fileList;
 				return fileList;
-			}
+            }else if(response == RESPONSE_USER_DOES_NOT_EXIST){
+                QStringList userBanned;
+                userBanned.append(RESPONSE_USER_DOES_NOT_EXIST);
+                return userBanned;
+            }
 		}
 		return QStringList();
 	}

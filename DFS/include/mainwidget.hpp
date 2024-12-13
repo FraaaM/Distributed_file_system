@@ -30,6 +30,8 @@ namespace SHIZ{
 
 			Logger* logger;
 
+            void setRights();
+
 		public:
 			MainWidget(Logger* logger, NetworkManager* manager, QWidget* parent = nullptr);
 
@@ -37,9 +39,7 @@ namespace SHIZ{
 
 		signals:
 			void showLoginWindow();
-
-        public slots:
-            void setRights();
+            void userBanned();
 
         private slots:
 			void onDeleteButtonClicked();

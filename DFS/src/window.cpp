@@ -1,4 +1,5 @@
 #include <QVBoxLayout>
+#include <QMessageBox>
 
 #include "window.hpp"
 
@@ -41,7 +42,7 @@ namespace SHIZ{
 		connect(registrationWidget, &RegistrationWidget::showLoginWindow, this, &Window::onSwitchToLoginWindow);
 		connect(registrationWidget, &RegistrationWidget::showConnectionWindow, this, &Window::onSwitchToConnectionWindow);
 
-         connect(this, &Window::switchOnMainWindow, mainWidget, &MainWidget::setRights);
+        connect(mainWidget, &MainWidget::userBanned, this, &Window::onSwitchToLoginWindowWithBanned);
 	}
 
 
@@ -68,6 +69,10 @@ namespace SHIZ{
 		stackedWidget->setCurrentWidget(connectionWidget);
 	}
 
+    void Window::onSwitchToLoginWindowWithBanned() {
+        QMessageBox::warning(this, "Account", "Your account was deleted.");
+        stackedWidget->setCurrentWidget(loginWidget);
+    }
 	void Window::onSwitchToLoginWindow() {
 		stackedWidget->setCurrentWidget(loginWidget);
 	}

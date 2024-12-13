@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "mainwidget.hpp"
+#include "clientmacros.hpp"
 
 namespace SHIZ{
 	MainWidget::MainWidget(Logger* logger, NetworkManager* manager, QWidget* parent)
@@ -58,11 +59,12 @@ namespace SHIZ{
 
 
 	void MainWidget::onDeleteButtonClicked() {
+        onRefreshButtonClicked();
+        setRights();
+
 		int selectedRow = fileTableWidget->currentRow();
 		if (selectedRow >= 0) {
             QString fileName = fileTableWidget->item(selectedRow, 0)->text();
-            QString groupOfFile = networkManager->getFileInfo(fileName);
-            QString groupOfUser = networkManager->getUserInfo(currentLogin).split("|")[1];
 
             if(ACCESS_DELETE){
                 bool success = networkManager->deleteFile(fileName);
@@ -82,6 +84,9 @@ namespace SHIZ{
 	}
 
 	void MainWidget::onDownloadButtonClicked(){
+        onRefreshButtonClicked();
+        setRights();
+
 		int selectedRow = fileTableWidget->currentRow();
 
 		if (selectedRow >= 0) {
@@ -121,8 +126,12 @@ namespace SHIZ{
 	}
 
 	void MainWidget::onRefreshButtonClicked(){
+        setRights();
         QStringList files = networkManager->requestFileList(currentLogin);
 
+        if(files.size() > 0 && files[0] == RESPONSE_USER_DOES_NOT_EXIST){
+            emit userBanned();
+        }
 		fileTableWidget->setRowCount(files.size());
 		for (int i = 0; i < files.size(); ++i) {
 			QStringList fileInfo = files[i].split("|");
@@ -147,6 +156,9 @@ namespace SHIZ{
 	}
 
 	void MainWidget::onUploadButtonClicked(){
+        onRefreshButtonClicked();
+        setRights();
+
         if(!ACCESS_WRITE){
             QMessageBox::warning(this, "Upload", "You don't have right upload files.");
             return;
@@ -181,19 +193,30 @@ namespace SHIZ{
 			QMessageBox::warning(this, "Upload", "File upload failed.");
 		}
 	}
+
     void MainWidget::setRights(){
-        std::string rights = networkManager->getUserInfo(currentLogin).split("|")[0].toStdString();
+        QString rights = networkManager->getUserInfo(currentLogin).split("|")[0];
 
-        for(int i = 0; i < rights.size(); i++){
-            char right = rights[i];
+        QChar right_to_read('r');
+        QChar right_to_write('w');
+        QChar right_to_delete('d');
 
-            if(right == 'r'){
-                ACCESS_READ = true;
-            }else if(right == 'w'){
-                ACCESS_WRITE = true;
-            }else if(right == 'd'){
-                ACCESS_DELETE = true;
-            }
+        if(rights.contains(right_to_read)){
+            ACCESS_READ = true;
+        }else{
+             ACCESS_READ = false;
+        }
+
+        if(rights.contains(right_to_write)){
+            ACCESS_WRITE = true;
+        }else{
+            ACCESS_WRITE = false;
+        }
+
+        if(rights.contains(right_to_delete)){
+            ACCESS_DELETE = true;
+        }else{
+            ACCESS_DELETE = false;
         }
     }
 }

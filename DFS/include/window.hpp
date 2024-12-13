@@ -42,5 +42,6 @@ namespace SHIZ{
 			void onSwitchToMainWindow();
             void onSwitchToAdminWindow();
 			void onSwitchToRegistrationWindow();
+            void onSwitchToLoginWindowWithBanned();
 	};
 }

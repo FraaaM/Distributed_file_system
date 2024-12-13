@@ -377,6 +377,8 @@ namespace SHIZ {
     }
 
     void MainServer::processFileListRequest(QTcpSocket* clientSocket, const QString& userName) {
+        QDataStream out(clientSocket);
+
         QSqlQuery userGroupId;
         userGroupId.prepare("SELECT " FIELD_USER_GROUP_ID " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
         userGroupId.bindValue(":username", userName);
@@ -388,15 +390,22 @@ namespace SHIZ {
 
         QStringList groupId;
 
-        while(userGroupId.next()){
-            groupId << userGroupId.value(0).toString().split(",");
+        if (!userGroupId.next()) {
+            out << QString(RESPONSE_USER_DOES_NOT_EXIST);
+            clientSocket->flush();
+            return;
         }
+
+        do {
+            groupId << userGroupId.value(0).toString().split(",");
+        } while (userGroupId.next());
+
 
         QString q = "SELECT " FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ", " FIELD_FILE_GROUP_ID " FROM " TABLE_FILES " WHERE ";
 
         QStringList conditions;
         for(const QString& elem : groupId){
-            conditions << QString(FIELD_FILE_GROUP_ID " LIKE '%%,%1'").arg(elem);
+            conditions << QString(FIELD_FILE_GROUP_ID " LIKE '%,%1'").arg(elem);
             conditions << QString(FIELD_FILE_GROUP_ID " = %1").arg(elem);
         }
 
@@ -405,7 +414,9 @@ namespace SHIZ {
         QSqlQuery query;
         query.prepare(q);
 
+
         if (!query.exec()) {
+             qDebug() <<  query.lastError().text();
             logger->log("Failed to execute query: " + query.lastError().text());
             return;
         }
@@ -419,7 +430,6 @@ namespace SHIZ {
 			fileList << fileInfo;
 		}
 
-		QDataStream out(clientSocket);
 		out << QString(RESPONSE_FILES_LIST) << fileList;
 		clientSocket->flush();
 	}
@@ -443,7 +453,7 @@ namespace SHIZ {
 		QString username = parts.value(1);
 		QString password = parts.value(2);
 
-		QDataStream out(clientSocket);
+        QDataStream out(clientSocket);
 
 		QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
 
@@ -497,6 +507,9 @@ namespace SHIZ {
             updateUserQuery.prepare("UPDATE " TABLE_USERS " SET " FIELD_USER_GROUP_ID " = :value WHERE " FIELD_USER_USERNAME " = :username");
         else if(key == FIELD_USER_RIGHTS)
             updateUserQuery.prepare("UPDATE " TABLE_USERS " SET " FIELD_USER_RIGHTS " = :value WHERE " FIELD_USER_USERNAME " = :username");
+        else if(key == FIELD_USER_IS_ADMIN){
+            updateUserQuery.prepare("UPDATE " TABLE_USERS " SET " FIELD_USER_IS_ADMIN " = :value WHERE " FIELD_USER_USERNAME " = :username");
+        }
         updateUserQuery.bindValue(":value", value);
         updateUserQuery.bindValue(":username", userName);
 

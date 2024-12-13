@@ -118,11 +118,15 @@ void AdminWidget::onCellChanged(int row, int column) {
     if (item && userChange) {
         QString value = item->text();
         bool success = false;
-        if(column == 2){
+
+        if(column == 1){
+            success = networkManager->updateUser(userName, QString(FIELD_USER_IS_ADMIN), value);
+        }else if(column == 2){
             success = networkManager->updateUser(userName, QString(FIELD_USER_GROUP_ID), value);
         }else if(column == 3){
             success = networkManager->updateUser(userName, QString(FIELD_USER_RIGHTS), value);
         }
+
         if (success) {
             QMessageBox::information(this, "Update", "User update successfully.");
             onRefreshButtonClicked();
