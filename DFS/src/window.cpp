@@ -1,4 +1,5 @@
 #include <QVBoxLayout>
+#include <QMessageBox>
 
 #include "window.hpp"
 
@@ -11,11 +12,13 @@ namespace SHIZ{
 		connectionWidget = new ConnectionWidget(logger, networkManager, this);
 		loginWidget = new LoginWidget(logger, networkManager, this);
 		mainWidget = new MainWidget(logger, networkManager, this);
+        adminWidget = new AdminWidget(logger, networkManager, this);
 		registrationWidget = new RegistrationWidget(logger, networkManager, this);
 
 		stackedWidget->addWidget(connectionWidget);
 		stackedWidget->addWidget(loginWidget);
 		stackedWidget->addWidget(mainWidget);
+        stackedWidget->addWidget(adminWidget);
 		stackedWidget->addWidget(registrationWidget);
 
 		stackedWidget->setCurrentWidget(connectionWidget);
@@ -26,15 +29,20 @@ namespace SHIZ{
 
 		connect(connectionWidget, &ConnectionWidget::ConnectionSuccessful, this, &Window::onConnectionSuccessful);
 
-		connect(loginWidget, &LoginWidget::loginSuccessful, this, &Window::onLoginSuccessful);
+        connect(loginWidget, &LoginWidget::loginUserSuccessful, this, &Window::onUserLoginSuccessful);
+        connect(loginWidget, &LoginWidget::loginAdminSuccessful, this, &Window::onAdminLoginSuccessful);
 		connect(loginWidget, &LoginWidget::showRegistrationWindow, this, &Window::onSwitchToRegistrationWindow);
 		connect(loginWidget, &LoginWidget::showConnectionWindow, this, &Window::onSwitchToConnectionWindow);
 
 		connect(mainWidget, &MainWidget::showLoginWindow, this, &Window::onSwitchToLoginWindow);
 
+        connect(adminWidget, &AdminWidget::showLoginWindow, this, &Window::onSwitchToLoginWindow);
+
 		connect(registrationWidget, &RegistrationWidget::registrationSuccessful, this, &Window::onRegistrationSuccessful);
 		connect(registrationWidget, &RegistrationWidget::showLoginWindow, this, &Window::onSwitchToLoginWindow);
 		connect(registrationWidget, &RegistrationWidget::showConnectionWindow, this, &Window::onSwitchToConnectionWindow);
+
+        connect(mainWidget, &MainWidget::userBanned, this, &Window::onSwitchToLoginWindowWithBanned);
 	}
 
 
@@ -43,10 +51,14 @@ namespace SHIZ{
 		onSwitchToLoginWindow();
 	}
 
-	void Window::onLoginSuccessful(const QString& login) {
+    void Window::onUserLoginSuccessful(const QString& login) {
 		mainWidget->setCurrentLogin(login);
 		onSwitchToMainWindow();
-	}
+    }
+    void Window::onAdminLoginSuccessful(const QString& login) {
+        mainWidget->setCurrentLogin(login);
+        onSwitchToAdminWindow();
+    }
 
 	void Window::onRegistrationSuccessful(const QString& login) {
 		mainWidget->setCurrentLogin(login);
@@ -57,13 +69,21 @@ namespace SHIZ{
 		stackedWidget->setCurrentWidget(connectionWidget);
 	}
 
+    void Window::onSwitchToLoginWindowWithBanned() {
+        QMessageBox::warning(this, "Account", "Your account was deleted.");
+        stackedWidget->setCurrentWidget(loginWidget);
+    }
 	void Window::onSwitchToLoginWindow() {
 		stackedWidget->setCurrentWidget(loginWidget);
 	}
 
 	void Window::onSwitchToMainWindow() {
 		stackedWidget->setCurrentWidget(mainWidget);
+        emit switchOnMainWindow();
 	}
+    void Window::onSwitchToAdminWindow() {
+        stackedWidget->setCurrentWidget(adminWidget);
+    }
 
 	void Window::onSwitchToRegistrationWindow() {
 		stackedWidget->setCurrentWidget(registrationWidget);

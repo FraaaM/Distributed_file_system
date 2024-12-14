@@ -15,6 +15,10 @@ namespace SHIZ{
 			NetworkManager* networkManager;
 			QString currentLogin;
 
+            bool ACCESS_WRITE = false;
+            bool ACCESS_READ = false;
+            bool ACCESS_DELETE = false;
+
 			QLabel* statusLabel;
 			QLineEdit* filterLineEdit;
 			QTableWidget* fileTableWidget;
@@ -26,6 +30,8 @@ namespace SHIZ{
 
 			Logger* logger;
 
+            void setRights();
+
 		public:
 			MainWidget(Logger* logger, NetworkManager* manager, QWidget* parent = nullptr);
 
@@ -33,8 +39,9 @@ namespace SHIZ{
 
 		signals:
 			void showLoginWindow();
+            void userBanned();
 
-		private slots:
+        private slots:
 			void onDeleteButtonClicked();
 			void onDownloadButtonClicked();
 			void onFilterTextChanged(const QString& text);

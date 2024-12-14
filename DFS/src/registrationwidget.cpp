@@ -91,4 +91,5 @@ namespace SHIZ{
 
 		emit showLoginWindow();
 	}
+
 }

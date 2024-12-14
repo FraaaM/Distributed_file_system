@@ -15,55 +15,55 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Sql)
 include_directories(include)
 
 set(PROJECT_SOURCES
-        main.cpp
-        include/logger.hpp src/logger.cpp
-        include/mainserver.hpp src/mainserver.cpp
-        include/mainwindow.hpp src/mainwindow.cpp
-        include/servermacros.hpp
+		main.cpp
+		include/logger.hpp src/logger.cpp
+		include/mainserver.hpp src/mainserver.cpp
+		include/mainwindow.hpp src/mainwindow.cpp
+		include/servermacros.hpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    qt_add_executable(MainServer
-        MANUAL_FINALIZATION
-        ${PROJECT_SOURCES}
-    )
+	qt_add_executable(MainServer
+		MANUAL_FINALIZATION
+		${PROJECT_SOURCES}
+	)
 else()
-    if(ANDROID)
-        add_library(MainServer SHARED
-            ${PROJECT_SOURCES}
-        )
-    else()
-        add_executable(MainServer
-            ${PROJECT_SOURCES}
-        )
-    endif()
+	if(ANDROID)
+		add_library(MainServer SHARED
+			${PROJECT_SOURCES}
+		)
+	else()
+		add_executable(MainServer
+			${PROJECT_SOURCES}
+		)
+	endif()
 endif()
 
 target_link_libraries(
-    MainServer PRIVATE
-        Qt${QT_VERSION_MAJOR}::Widgets
-        Qt${QT_VERSION_MAJOR}::Network
-        Qt${QT_VERSION_MAJOR}::Sql
+	MainServer PRIVATE
+		Qt${QT_VERSION_MAJOR}::Widgets
+		Qt${QT_VERSION_MAJOR}::Network
+		Qt${QT_VERSION_MAJOR}::Sql
 )
 
 if(${QT_VERSION} VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.MainServer)
 endif()
 set_target_properties(MainServer PROPERTIES
-    ${BUNDLE_ID_OPTION}
-    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
-    MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
-    MACOSX_BUNDLE TRUE
-    WIN32_EXECUTABLE TRUE
+	${BUNDLE_ID_OPTION}
+	MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+	MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+	MACOSX_BUNDLE TRUE
+	WIN32_EXECUTABLE TRUE
 )
 
 include(GNUInstallDirs)
 install(TARGETS MainServer
-    BUNDLE DESTINATION .
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+	BUNDLE DESTINATION .
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)
-    qt_finalize_executable(MainServer)
+	qt_finalize_executable(MainServer)
 endif()

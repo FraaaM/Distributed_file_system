@@ -58,13 +58,18 @@ namespace SHIZ {
 			return;
 		}
 
-		bool success = networkManager->sendLoginRequest(login, password);
-		if (success) {
+        std::string success = networkManager->sendLoginRequest(login, password);
+        if (success == "user") {
 			loginInput->clear();
 			passwordInput->clear();
-			emit loginSuccessful(login);
-			logger->log("Login successful: " + login);
-		}
+            emit loginUserSuccessful(login);
+            logger->log("Login user successful: " + login);
+        }else if(success == "admin"){
+            loginInput->clear();
+            passwordInput->clear();
+            emit loginAdminSuccessful(login);
+            logger->log("Login admin successful: " + login);
+        }
 	}
 
 	void LoginWidget::onRegisterButtonClicked(){
