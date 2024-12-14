@@ -2,10 +2,9 @@
 #include <QMessageBox>
 #include <QVBoxLayout>
 #include <QHeaderView>
-#include <iostream>
 
-#include "mainwidget.hpp"
 #include "clientmacros.hpp"
+#include "mainwidget.hpp"
 
 namespace SHIZ{
 	MainWidget::MainWidget(Logger* logger, NetworkManager* manager, QWidget* parent)
@@ -58,6 +57,15 @@ namespace SHIZ{
 	}
 
 
+	void MainWidget::setRights(){
+		QString rights = networkManager->getUserInfo(currentLogin).split("|")[0];
+
+		readAccess = rights.contains(RIGHT_TO_READ);
+		writeAccess = rights.contains(RIGHT_TO_WRITE);
+		deleteAccess = rights.contains(RIGHT_TO_DELETE);
+	}
+
+
 	void MainWidget::onDeleteButtonClicked() {
         onRefreshButtonClicked();
         setRights();
@@ -66,7 +74,7 @@ namespace SHIZ{
 		if (selectedRow >= 0) {
             QString fileName = fileTableWidget->item(selectedRow, 0)->text();
 
-            if(ACCESS_DELETE){
+            if(deleteAccess){
                 bool success = networkManager->deleteFile(fileName);
                 if (success) {
                     QMessageBox::information(this, "Delete", "File deleted successfully.");
@@ -74,7 +82,7 @@ namespace SHIZ{
                 } else {
                     QMessageBox::warning(this, "Delete", "File deletion failed.");
                 }
-            }else{
+			} else {
                 QMessageBox::warning(this, "Delete", "You don't have right delete this file.");
             }
 
@@ -88,11 +96,10 @@ namespace SHIZ{
         setRights();
 
 		int selectedRow = fileTableWidget->currentRow();
-
 		if (selectedRow >= 0) {
             QString fileName = fileTableWidget->item(selectedRow, 0)->text();
 
-            if(ACCESS_READ){
+            if(readAccess){
                 QString directory = QFileDialog::getExistingDirectory(this, "Select Download Folder");
 
                 if (!directory.isEmpty()) {
@@ -104,7 +111,7 @@ namespace SHIZ{
                         QMessageBox::warning(this, "Download", "File download failed.");
                     }
                 }
-            }else{
+			} else {
                 QMessageBox::warning(this, "Download", "You don't have right download this file.");
             }
 		} else {
@@ -159,7 +166,7 @@ namespace SHIZ{
         onRefreshButtonClicked();
         setRights();
 
-        if(!ACCESS_WRITE){
+        if(!writeAccess){
             QMessageBox::warning(this, "Upload", "You don't have right upload files.");
             return;
         }
@@ -193,30 +200,4 @@ namespace SHIZ{
 			QMessageBox::warning(this, "Upload", "File upload failed.");
 		}
 	}
-
-    void MainWidget::setRights(){
-        QString rights = networkManager->getUserInfo(currentLogin).split("|")[0];
-
-        QChar right_to_read('r');
-        QChar right_to_write('w');
-        QChar right_to_delete('d');
-
-        if(rights.contains(right_to_read)){
-            ACCESS_READ = true;
-        }else{
-             ACCESS_READ = false;
-        }
-
-        if(rights.contains(right_to_write)){
-            ACCESS_WRITE = true;
-        }else{
-            ACCESS_WRITE = false;
-        }
-
-        if(rights.contains(right_to_delete)){
-            ACCESS_DELETE = true;
-        }else{
-            ACCESS_DELETE = false;
-        }
-    }
 }

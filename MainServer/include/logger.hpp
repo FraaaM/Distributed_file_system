@@ -2,7 +2,6 @@
 
 #include <QDateTime>
 #include <QFile>
-#include <QDebug>
 
 namespace SHIZ{
 	class Logger : public QObject {

@@ -5,9 +5,8 @@
 #include <QLabel>
 #include <QLineEdit>
 
-#include "adminwidget.hpp"
-#include "networkmanager.hpp"
 #include "logger.hpp"
+#include "networkmanager.hpp"
 
 namespace SHIZ{
     class AdminWidget : public QWidget{
@@ -36,12 +35,12 @@ namespace SHIZ{
     signals:
         void showLoginWindow();
 
-    private slots:
+	private slots:
+		void onCellChanged(int row, int column);
         void onDeleteButtonClicked();
         void onFilterTextChanged(const QString& text);
         void onLogoutButtonClicked();
         void onRefreshButtonClicked();
-        void onStatusMessageReceived(const QString& message);
-        void onCellChanged(int row, int column);
+		void onStatusMessageReceived(const QString& message);
     };
 }

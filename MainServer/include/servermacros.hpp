@@ -1,5 +1,7 @@
 #pragma once
 
+#define CHUNK_SIZE 1024
+
 #define DATABASE_TYPE "QSQLITE"
 #define DATABASE_NAME "db.db"
 
@@ -46,9 +48,6 @@
 #define COMMAND_REPLICA_DOWNLOAD "REPLICA_DOWNLOAD"
 #define COMMAND_GET_FILE_INFO "GET_FILE_INFO"
 #define COMMAND_GET_USER_INFO "GET_USER_INFO"
-
-
-#define CHUNK_SIZE 1024
 
 #define TABLE_USERS "users"
 #define FIELD_USER_ID "id"

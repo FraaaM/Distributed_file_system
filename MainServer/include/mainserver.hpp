@@ -30,18 +30,18 @@ namespace SHIZ{
 		private:
 			bool distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate);
             void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName);
-            void processUpdateUserRequest(QTcpSocket* clientSocket, const QString& userName, const QString& key, const QString& value);
-            void processDeleteUserRequest(QTcpSocket* clientSocket, const QString& userName);
+			void processDeleteUserRequest(QTcpSocket* clientSocket, const QString& userName);
 			void processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName);
             void processFileListRequest(QTcpSocket* clientSocket, const QString& userName);
-            void processUserListRequest(QTcpSocket* clientSocket);
+			void processGetFileInfoRequest(QTcpSocket* clientSocket, const QString& fileName);
+			void processGetUserInfoRequest(QTcpSocket* clientSocket, const QString& userName);
 			void processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts);
 			void processRegistrationRequest(QTcpSocket* clientSocket, const QStringList& parts);
 			void processReplicaConnection(QTcpSocket* replicaSocket);
+			void processUpdateUserRequest(QTcpSocket* clientSocket, const QString& userName, const QString& key, const QString& value);
 			void processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize);
+			void processUserListRequest(QTcpSocket* clientSocket);
 			bool tryDownloadFromReplica(QTcpSocket* clientSocket, const QString& fileName, const QString& address, quint16 port);
-            void processGetFileInfoRequest(QTcpSocket* clientSocket, const QString& fileName);
-            void processGetUserInfoRequest(QTcpSocket* clientSocket, const QString& userName);
 
 		signals:
 			void replicaDisconnected(const QString& replicaAddress);

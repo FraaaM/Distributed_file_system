@@ -30,5 +30,4 @@ namespace SHIZ{
 		private slots:
 			void onEnterButtonClicked();
 	};
-
 }

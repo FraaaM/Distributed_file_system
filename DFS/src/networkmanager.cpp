@@ -36,14 +36,6 @@ namespace SHIZ {
 		return false;
 	}
 
-	void NetworkManager::disconnectFromHost() {
-		if (tcpSocket->isOpen()) {
-			tcpSocket->disconnectFromHost();
-		}
-		reconnectTimer->stop();
-		logger->log("Disconnected from server and stopped reconnect attempts.");
-	}
-
 	bool NetworkManager::deleteFile(const QString& fileName) {
 		emit statusMessage("Requesting file deletion...");
 		logger->log("Requesting file deletion...");
@@ -61,6 +53,29 @@ namespace SHIZ {
 			bool success = response == RESPONSE_DELETE_SUCCESS;
 			emit statusMessage(success ? "File deleted successfully." : "File deletion failed.");
 			logger->log(success ? "File deleted successfully." : "File deletion failed.");
+			return success;
+		}
+		emit statusMessage("Server response timed out.");
+		logger->log("Server response timed out.");
+		return false;
+	}
+
+	bool NetworkManager::deleteUser(const QString& userName){
+		emit statusMessage("Requesting user deletion...");
+		logger->log("Requesting user deletion...");
+
+		QDataStream out(tcpSocket);
+		out << QString(COMMAND_DELETE_USER) << userName;
+		tcpSocket->flush();
+
+		if (tcpSocket->waitForReadyRead(3000)) {
+			QDataStream in(tcpSocket);
+			QString response;
+			in >> response;
+
+			bool success = response == RESPONSE_DELETE_SUCCESS;
+			emit statusMessage(success ? "User deleted successfully." : "User deletion failed.");
+			logger->log(success ? "User deleted successfully." : "User deletion failed.");
 			return success;
 		}
 		emit statusMessage("Server response timed out.");
@@ -143,64 +158,57 @@ namespace SHIZ {
 		return true;
 	}
 
-    bool NetworkManager::deleteUser(const QString& userName){
-        emit statusMessage("Requesting user deletion...");
-        logger->log("Requesting user deletion...");
+	void NetworkManager::disconnectFromHost() {
+		if (tcpSocket->isOpen()) {
+			tcpSocket->disconnectFromHost();
+		}
+		reconnectTimer->stop();
+		logger->log("Disconnected from server and stopped reconnect attempts.");
+	}
 
 
-        QDataStream out(tcpSocket);
-        out << QString(COMMAND_DELETE_USER) << userName;
-        tcpSocket->flush();
+	QString NetworkManager::getFileInfo(const QString &fileName){
+		QDataStream out(tcpSocket);
+		out << QString(COMMAND_GET_FILE_INFO) << fileName;
+		tcpSocket->flush();
 
-        if (tcpSocket->waitForReadyRead(3000)) {
-            QDataStream in(tcpSocket);
-            QString response;
-            in >> response;
+		if (tcpSocket->waitForReadyRead(3000)) {
+			QDataStream in(tcpSocket);
+			QString response;
+			QString groupFile;
 
-            bool success = response == RESPONSE_DELETE_SUCCESS;
-            emit statusMessage(success ? "User deleted successfully." : "User deletion failed.");
-            logger->log(success ? "User deleted successfully." : "User deletion failed.");
-            return success;
-        }
-        emit statusMessage("Server response timed out.");
-        logger->log("Server response timed out.");
-        return false;
-    }
+			in >> response;
+			if (response == RESPONSE_FILE_INFO) {
+				in >> groupFile;
+				return groupFile;
+			}
+		}
+		return QString();
+	}
 
-    bool NetworkManager::updateUser(const QString &userName, const QString &key, const QString &value){
-        emit statusMessage("Requesting user updating...");
-        logger->log("Requesting user updating...");
+	QString NetworkManager::getUserInfo(const QString &userName){
+		QDataStream out(tcpSocket);
+		out << QString(COMMAND_GET_USER_INFO) << userName;
+		tcpSocket->flush();
 
+		if (tcpSocket->waitForReadyRead(3000)) {
+			QDataStream in(tcpSocket);
+			QString response;
+			QString userInfo;
 
-        QDataStream out(tcpSocket);
-        out << QString(COMMAND_UPDATE_USER) << userName << key << value;
-        tcpSocket->flush();
-
-        if (tcpSocket->waitForReadyRead(3000)) {
-            QDataStream in(tcpSocket);
-            QString response;
-            in >> response;
-
-            bool success = response == RESPONSE_UPDATE_USER_SUCCESS;
-
-            emit statusMessage(success ? "User updated successfully." : "User update failed.");
-            logger->log(success ? "User updated successfully." : "User update failed.");
-            return success;
-        }
-        emit statusMessage("Server response timed out.");
-        logger->log("Server response timed out.");
-        return false;
-    }
-
-    bool NetworkManager::addUser(const QString& userName){
-        return true;
-    }
+			in >> response;
+			if (response == RESPONSE_USER_INFO) {
+				in >> userInfo;
+				return userInfo;
+			}
+		}
+		return QString();
+	}
 
     QStringList NetworkManager::requestFileList(const QString &userName){
 		QDataStream out(tcpSocket);
         out << QString(COMMAND_GET_FILES) << userName;
 		tcpSocket->flush();
-
 
 		if (tcpSocket->waitForReadyRead(3000)) {
 			QDataStream in(tcpSocket);
@@ -220,44 +228,6 @@ namespace SHIZ {
 		return QStringList();
 	}
 
-    QString NetworkManager::getUserInfo(const QString &userName){
-        QDataStream out(tcpSocket);
-        out << QString(COMMAND_GET_USER_INFO) << userName;
-        tcpSocket->flush();
-
-        if (tcpSocket->waitForReadyRead(3000)) {
-            QDataStream in(tcpSocket);
-            QString response;
-            QString userInfo;
-
-            in >> response;
-            if (response == RESPONSE_USER_INFO) {
-                in >> userInfo;
-                return userInfo;
-            }
-        }
-        return QString();
-    }
-
-    QString NetworkManager::getFileInfo(const QString &fileName){
-        QDataStream out(tcpSocket);
-        out << QString(COMMAND_GET_FILE_INFO) << fileName;
-        tcpSocket->flush();
-
-        if (tcpSocket->waitForReadyRead(3000)) {
-            QDataStream in(tcpSocket);
-            QString response;
-            QString groupFile;
-
-            in >> response;
-            if (response == RESPONSE_FILE_INFO) {
-                in >> groupFile;
-                return groupFile;
-            }
-        }
-        return QString();
-    }
-
     QStringList NetworkManager::requestUserList(){
         QDataStream out(tcpSocket);
         out << QString(COMMAND_GET_USERS);
@@ -276,7 +246,8 @@ namespace SHIZ {
         }
         return QStringList();
     }
-    std::string NetworkManager::sendLoginRequest(const QString& login, const QString& password) {
+
+	QString NetworkManager::sendLoginRequest(const QString& login, const QString& password) {
 		QDataStream out(tcpSocket);
 		out << QString(COMMAND_LOGIN) << login << password;
 		tcpSocket->flush();
@@ -287,16 +258,16 @@ namespace SHIZ {
 			in >> response;
 
             if (response == RESPONSE_LOGIN_USER_SUCCESS) {
-                return "user";
+				return USER;
             }else if(response == RESPONSE_LOGIN_ADMIN_SUCCESS){
-                return "admin";
+				return ADMIN;
             }else {
 				QMessageBox::warning(nullptr, "Login error", "Incorrect username or password.");
 			}
 		} else {
 			QMessageBox::warning(nullptr, "Network error", "Failed to connect to the server.");
 		}
-        return "fail";
+		return QString();
 	}
 
 	bool NetworkManager::sendRegistrationRequest(const QString& login, const QString& password, const QString& confirmPassword) {
@@ -326,6 +297,29 @@ namespace SHIZ {
 	void NetworkManager::setHostAndPort(const QString& host, quint16 port) {
 		this->host = host;
 		this->port = port;
+	}
+
+	bool NetworkManager::updateUser(const QString &userName, const QString &key, const QString &value){
+		emit statusMessage("Requesting user updating...");
+		logger->log("Requesting user updating...");
+
+		QDataStream out(tcpSocket);
+		out << QString(COMMAND_UPDATE_USER) << userName << key << value;
+		tcpSocket->flush();
+
+		if (tcpSocket->waitForReadyRead(3000)) {
+			QDataStream in(tcpSocket);
+			QString response;
+			in >> response;
+
+			bool success = response == RESPONSE_UPDATE_USER_SUCCESS;
+			emit statusMessage(success ? "User updated successfully." : "User update failed.");
+			logger->log(success ? "User updated successfully." : "User update failed.");
+			return success;
+		}
+		emit statusMessage("Server response timed out.");
+		logger->log("Server response timed out.");
+		return false;
 	}
 
 	bool NetworkManager::uploadFile(const QString& filePath, const QString& owner) {
@@ -404,6 +398,7 @@ namespace SHIZ {
 
 		return false;
 	}
+
 
 	void NetworkManager::onConnected() {
 		reconnectTimer->stop();

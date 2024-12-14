@@ -15,9 +15,9 @@ namespace SHIZ{
 			NetworkManager* networkManager;
 			QString currentLogin;
 
-            bool ACCESS_WRITE = false;
-            bool ACCESS_READ = false;
-            bool ACCESS_DELETE = false;
+			bool writeAccess = false;
+			bool readAccess = false;
+			bool deleteAccess = false;
 
 			QLabel* statusLabel;
 			QLineEdit* filterLineEdit;
@@ -30,12 +30,13 @@ namespace SHIZ{
 
 			Logger* logger;
 
-            void setRights();
-
 		public:
 			MainWidget(Logger* logger, NetworkManager* manager, QWidget* parent = nullptr);
 
 			void setCurrentLogin(const QString& login);
+
+		private:
+			void setRights();
 
 		signals:
 			void showLoginWindow();

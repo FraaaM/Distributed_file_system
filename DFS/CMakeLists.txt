@@ -20,6 +20,7 @@ set(RESOURCE_FILES
 
 set(PROJECT_SOURCES
         main.cpp
+        include/adminwidget.hpp src/adminwidget.cpp
         include/clientmacros.hpp
         include/connectionwidget.hpp src/connectionwidget.cpp
         include/logger.hpp src/logger.cpp
@@ -28,7 +29,6 @@ set(PROJECT_SOURCES
         include/networkmanager.hpp src/networkmanager.cpp
         include/registrationwidget.hpp src/registrationwidget.cpp
         include/window.hpp src/window.cpp
-		include/adminwidget.hpp src/adminwidget.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -36,7 +36,6 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         ${RESOURCE_FILES}
-
     )
 else()
     if(ANDROID)
@@ -46,7 +45,7 @@ else()
         )
     else()
         add_executable(DFS
-#            ${PROJECT_SOURCES}
+            ${PROJECT_SOURCES}
             ${RESOURCE_FILES}
         )
     endif()

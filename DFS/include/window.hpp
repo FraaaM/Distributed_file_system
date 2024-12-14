@@ -2,12 +2,12 @@
 
 #include <QStackedWidget>
 
+#include "adminwidget.hpp"
 #include "connectionwidget.hpp"
 #include "loginwidget.hpp"
 #include "mainwidget.hpp"
 #include "networkmanager.hpp"
 #include "registrationwidget.hpp"
-#include "adminwidget.hpp"
 
 namespace SHIZ{
 	class Window: public QWidget{
@@ -18,30 +18,27 @@ namespace SHIZ{
 
 			QStackedWidget* stackedWidget;
 
+			AdminWidget* adminWidget;
 			ConnectionWidget* connectionWidget;
 			LoginWidget* loginWidget;
 			MainWidget* mainWidget;
 			RegistrationWidget* registrationWidget;
-            AdminWidget* adminWidget;
 
 			Logger* logger;
 
 		public:
 			Window(Logger* logger, NetworkManager* networkManager, QWidget* parent = nullptr);
 
-        signals:
-            void switchOnMainWindow();
-
 		private slots:
+			void onAdminLoginSuccessful(const QString& login);
 			void onConnectionSuccessful (const QString &host, quint16 port);
-            void onUserLoginSuccessful(const QString& login);
-             void onAdminLoginSuccessful(const QString& login);
 			void onRegistrationSuccessful(const QString& login);
+			void onSwitchToAdminWindow();
 			void onSwitchToConnectionWindow();
 			void onSwitchToLoginWindow();
+			void onSwitchToLoginWindowWithBanned();
 			void onSwitchToMainWindow();
-            void onSwitchToAdminWindow();
 			void onSwitchToRegistrationWindow();
-            void onSwitchToLoginWindowWithBanned();
+			void onUserLoginSuccessful(const QString& login);
 	};
 }

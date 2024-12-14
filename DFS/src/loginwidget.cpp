@@ -2,6 +2,7 @@
 #include <QMessageBox>
 #include <QVBoxLayout>
 
+#include "clientmacros.hpp"
 #include "loginwidget.hpp"
 
 namespace SHIZ {
@@ -58,13 +59,13 @@ namespace SHIZ {
 			return;
 		}
 
-        std::string success = networkManager->sendLoginRequest(login, password);
-        if (success == "user") {
+		QString loginResult = networkManager->sendLoginRequest(login, password);
+		if (loginResult == USER) {
 			loginInput->clear();
 			passwordInput->clear();
             emit loginUserSuccessful(login);
             logger->log("Login user successful: " + login);
-        }else if(success == "admin"){
+		} else if(loginResult == ADMIN){
             loginInput->clear();
             passwordInput->clear();
             emit loginAdminSuccessful(login);

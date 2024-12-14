@@ -6,7 +6,6 @@
 #include <QStatusBar>
 #include <QListWidget>
 #include <QVBoxLayout>
-#include <QDialog>
 
 #include "logger.hpp"
 #include "mainserver.hpp"
