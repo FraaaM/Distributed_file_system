@@ -1,3 +1,9 @@
+// клиент подключается к серверу, потом клиенту передаётся ip и port фоловера
+//и клиент к нему автоматически подключается.
+//Если связь с MainServer теряется то DFS подключается к фоловеру.
+//в нетворк менеджере нужно прописать что бы в этоим случае сокет поменялся
+
+
 #pragma once
 
 #include <QSqlDatabase>
@@ -7,32 +13,35 @@
 #include "logger.hpp"
 
 namespace SHIZ{
-	class MainServer : public QTcpServer{
-			Q_OBJECT
+	class FollowerServer : public QTcpServer {
+		Q_OBJECT
+
 
 		private:
 			QSqlDatabase dataBase;
 			QList<QTcpSocket*> activeClients;
 			QVector<QTcpSocket*> replicaSockets;
-			QTcpSocket* followerSocket;
 			Logger* logger;
 
+			QStringList replicaList;
+			QList<QTcpSocket*> receivedReplicas;
+			//QTcpSocket* mainServer;
+			QTcpSocket* mainServerSocket;
+
 		public:
-			MainServer(Logger* logger, QObject *parent = nullptr);
-			~MainServer();
+			FollowerServer(Logger* logger, QObject *parent = nullptr);
+			~FollowerServer();
 
 			void closeServer();
-			bool connectToFollower(const QString& host, quint16 port); ///////////////////////////////
-			bool disconnectFromFollower(const QString& host, quint16 port); //!!!!!!!!!!!!!!
-
-			bool connectToReplica(const QString& host, quint16 port);
-			void disconnectFromReplica(const QString& host, quint16 port);
+			bool connectToHost(const QString& host, quint16 port);
+			void disconnectFromHost(const QString& host, quint16 port);
 
 		protected:
 			void incomingConnection(qintptr socketDescriptor) override;
 
 		private:
-			void receiveReplicaSockets();
+
+				void switchToActiveMode(); //////////////////////////////////////////////////////////
 
 			bool distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate);
 			void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName);
@@ -45,16 +54,15 @@ namespace SHIZ{
 			bool tryDownloadFromReplica(QTcpSocket* clientSocket, const QString& fileName, const QString& address, quint16 port);
 
 		signals:
-			void followerDisconnected(const QString& followerAddress); //////////////////&
 			void replicaDisconnected(const QString& replicaAddress);
 			void statusMessage(const QString& message);
 
 		private slots:
 			void handleClientData();
 			void handleClientDisconnected();
+			void handleMainData();
+			void handleMainDisconnected();
 			void onReplicaConnected();
 			void onReplicaDisconnected();
-			void onFollowerConnected();      /////////////////////////&&
-			void onFollowerDisconnected(); //////////////////////////!!!!!!!!!!
 	};
 }

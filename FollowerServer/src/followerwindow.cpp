@@ -1,9 +1,9 @@
-#include "mainwindow.hpp"
+#include "followerwindow.hpp"
 
 namespace SHIZ{
-	MainWindow::MainWindow(Logger* logger, QWidget *parent)
+	FollowerWindow::FollowerWindow(Logger* logger, QWidget *parent)
 		: QMainWindow(parent),
-		server(new MainServer(logger, this)),
+		server(new FollowerServer(logger, this)),
 		logger(logger),
 		serverRunning(false)
 	{
@@ -17,23 +17,6 @@ namespace SHIZ{
 
 		toggleButton = new QPushButton("Start server", this);
 		layout->addWidget(toggleButton);
-
-		followerIpInput = new QLineEdit(this);
-		followerIpInput->setPlaceholderText("Follower IP");
-		followerIpInput->setText("127.0.0.1");
-		layout->addWidget(followerIpInput);
-
-		followerPortInput = new QLineEdit(this);
-		followerPortInput->setPlaceholderText("Follower Port");
-		followerPortInput->setText("123456");
-		layout->addWidget(followerPortInput);
-
-		connectFollowerButton = new QPushButton("Connect to Follower", this);
-		layout->addWidget(connectFollowerButton);
-
-		disconnectFollowerButton = new QPushButton("Disconnect from Follower", this);
-		layout->addWidget(disconnectFollowerButton);
-
 
 		replicaList = new QListWidget(this);
 		layout->addWidget(replicaList);
@@ -60,17 +43,13 @@ namespace SHIZ{
 
 		setCentralWidget(centralWidget);
 
-		connect(connectReplicaButton, &QPushButton::clicked, this, &MainWindow::onConnectReplica);
-		connect(disconnectReplicaButton, &QPushButton::clicked, this, &MainWindow::onDisconnectReplica);
-		connect(server, &MainServer::replicaDisconnected, this, &MainWindow::onReplicaDisconnected);
-		connect(toggleButton, &QPushButton::clicked, this, &MainWindow::onToggleServerState);
-
-		connect(connectFollowerButton, &QPushButton::clicked, this, &MainWindow::onConnectFollower);
-		connect(disconnectFollowerButton, &QPushButton::clicked, this, MainWindow::onDisconnectFollower);
-		connect(server, &MainServer::followerDisconnected, this, &MainWindow::onFollowerDisconnected);
+		connect(connectReplicaButton, &QPushButton::clicked, this, &FollowerWindow::onConnectReplica);
+		connect(disconnectReplicaButton, &QPushButton::clicked, this, &FollowerWindow::onDisconnectReplica);
+		connect(server, &FollowerServer::replicaDisconnected, this, &FollowerWindow::onReplicaDisconnected);
+		connect(toggleButton, &QPushButton::clicked, this, &FollowerWindow::onToggleServerState);
 	}
 
-	MainWindow::~MainWindow() {
+	FollowerWindow::~FollowerWindow() {
 		if (serverRunning) {
 			server->close();
 			logger->log("Server stopped before exiting.");
@@ -79,49 +58,7 @@ namespace SHIZ{
 	}
 
 
-	void MainWindow::onConnectFollower() {
-		QString followerIp = followerIpInput->text();
-		bool ok;
-		quint16 followerPort = followerPortInput->text().toUShort(&ok);
-
-		if (followerIp.isEmpty() || !ok || followerPort == 0) {
-			statusBar->showMessage("Invalid follower IP or port.");
-			logger->log("Invalid follower IP or port entered.");
-			return;
-		}
-
-		if (server->connectToFollower(followerIp, followerPort)) {
-			statusBar->showMessage("Follower connected: " + followerIp + ":" + QString::number(followerPort));
-			logger->log("Connected to follower: " + followerIp + ":" + QString::number(followerPort));
-		} else {
-			statusBar->showMessage("Failed to connect to follower.");
-			logger->log("Failed to connect to follower: " + followerIp + ":" + QString::number(followerPort));
-		}
-	}
-
-	void MainWindow::onDisconnectFollower() {
-		QTcpSocket* followerSocket = qobject_cast<QTcpSocket*>(sender());
-		if (!followerSocket) {
-			statusBar->showMessage("Invalid follower socket.");
-			logger->log("Failed to disconnect: invalid follower socket.");
-			return;
-		}
-
-		QString followerIp = followerSocket->peerAddress().toString();
-		quint16 followerPort = followerSocket->peerPort();
-
-		if (!server->disconnectFromFollower(followerIp, followerPort)) {
-			statusBar->showMessage("Failed to disconnect from follower.");
-			logger->log("Failed to disconnect from follower: " + followerIp + ":" + QString::number(followerPort));
-		}
-	}
-
-	void MainWindow::onFollowerDisconnected(const QString& followerAddress) {
-		statusBar->showMessage("Follower disconnected: " + followerAddress );
-		logger->log("Follower disconnected automatically: " + followerAddress);
-	}
-
-	void MainWindow::onConnectReplica() {
+	void FollowerWindow::onConnectReplica() {
 		QString replicaIp = replicaIpInput->text();
 		bool ok;
 		quint16 replicaPort = replicaPortInput->text().toUShort(&ok);
@@ -132,7 +69,7 @@ namespace SHIZ{
 			return;
 		}
 
-		if (server->connectToReplica(replicaIp, replicaPort)) {
+		if (server->connectToHost(replicaIp, replicaPort)) {
 			replicaList->addItem(replicaIp + ":" + QString::number(replicaPort));
 			statusBar->showMessage("Replica connected: " + replicaIp + ":" + QString::number(replicaPort));
 		} else {
@@ -140,7 +77,7 @@ namespace SHIZ{
 		}
 	}
 
-	void MainWindow::onDisconnectReplica() {
+	void FollowerWindow::onDisconnectReplica() {
 		QListWidgetItem* selectedItem = replicaList->currentItem();
 		if (!selectedItem) {
 			statusBar->showMessage("No replica selected for disconnection.");
@@ -167,12 +104,12 @@ namespace SHIZ{
 			return;
 		}
 
-		server->disconnectFromReplica(host, port);
+		server->disconnectFromHost(host, port);
 		delete selectedItem;
-		//statusBar->showMessage("Replica disconnected: " + host + ":" + QString::number(port));
+		statusBar->showMessage("Replica disconnected: " + host + ":" + QString::number(port));
 	}
 
-	void MainWindow::onReplicaDisconnected(const QString& replicaAddress) {
+	void FollowerWindow::onReplicaDisconnected(const QString& replicaAddress) {
 		QList<QListWidgetItem*> items = replicaList->findItems(replicaAddress, Qt::MatchExactly);
 		for (QListWidgetItem* item : items) {
 			delete replicaList->takeItem(replicaList->row(item));
@@ -181,7 +118,7 @@ namespace SHIZ{
 		logger->log("Replica removed from list: " + replicaAddress);
 	}
 
-	void MainWindow::onToggleServerState() {
+	void FollowerWindow::onToggleServerState() {
 		if (serverRunning) {
 			server->closeServer();
 			statusBar->showMessage("Server stopped.");

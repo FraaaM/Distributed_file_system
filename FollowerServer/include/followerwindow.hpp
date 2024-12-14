@@ -8,39 +8,32 @@
 #include <QVBoxLayout>
 
 #include "logger.hpp"
-#include "mainserver.hpp"
+#include "followerserver.hpp"
 
 namespace SHIZ{
-	class MainWindow : public QMainWindow {
+class FollowerWindow : public QMainWindow {
 		Q_OBJECT
 
 		private:
-			MainServer* server;
+			FollowerServer* server;
 			QPushButton* toggleButton;
 			QStatusBar* statusBar;
 			QLineEdit* portInput;
 
-			QLineEdit* followerIpInput;
-			QLineEdit* followerPortInput;
 			QListWidget* replicaList;
 			QLineEdit* replicaIpInput;
 			QLineEdit* replicaPortInput;
 			QPushButton* connectReplicaButton;
 			QPushButton* disconnectReplicaButton;
-			QPushButton* connectFollowerButton;
-			QPushButton* disconnectFollowerButton;
 
 			Logger* logger;
 			bool serverRunning;
 
 		public:
-			MainWindow(Logger* logger, QWidget *parent = nullptr);
-			~MainWindow();
+			FollowerWindow(Logger* logger, QWidget *parent = nullptr);
+			~FollowerWindow();
 
 		private slots:
-			void onConnectFollower();///
-			void onDisconnectFollower();////
-			void onFollowerDisconnected(const QString& followerAddress); ///////
 			void onConnectReplica();
 			void onDisconnectReplica();
 			void onReplicaDisconnected(const QString& replicaAddress);

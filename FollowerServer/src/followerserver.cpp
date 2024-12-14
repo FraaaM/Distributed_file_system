@@ -6,16 +6,16 @@
 #include <QSqlError>
 #include <QSqlQuery>
 
-#include "mainserver.hpp"
+#include "followerserver.hpp"
 #include "servermacros.hpp"
 
 namespace SHIZ {
-	MainServer::MainServer(Logger* logger, QObject* parent)
+	FollowerServer::FollowerServer(Logger* logger, QObject* parent)
 		: logger(logger), QTcpServer(parent)
 	{
 		dataBase = QSqlDatabase::addDatabase(DATABASE_TYPE);
 		dataBase.setDatabaseName(DATABASE_NAME);
-		followerSocket = nullptr;
+		mainServerSocket = nullptr;
 
 		if (!dataBase.open()) {
 			logger->log("Failed to connect to database.");
@@ -44,12 +44,12 @@ namespace SHIZ {
 		logger->log("Server initialized successfully.");
 	}
 
-	MainServer::~MainServer() {
+	FollowerServer::~FollowerServer() {
 		closeServer();
 	}
 
 
-	void MainServer::closeServer() {
+	void FollowerServer::closeServer() {
 		close();
 		for (QTcpSocket* client : activeClients) {
 			client->disconnectFromHost();
@@ -62,45 +62,7 @@ namespace SHIZ {
 		logger->log("All clients disconnected and server stopped.");
 	}
 
-	bool MainServer::connectToFollower(const QString& host, quint16 port) {
-		QTcpSocket* followerSocket = new QTcpSocket(this);
-		followerSocket->connectToHost(host, port);
-
-		if (followerSocket->waitForConnected(3000)) {
-			QDataStream out(followerSocket);
-			out << QString(MAIN_SERVER);
-			followerSocket->flush();
-
-			MainServer::followerSocket = followerSocket; // Сохраняем соединение
-			logger->log("Connected to FollowerServer at " + host + ":" + QString::number(port));
-
-			connect(followerSocket, &QTcpSocket::connected, this, &MainServer::onFollowerConnected);
-			connect(followerSocket, &QTcpSocket::disconnected, this, &MainServer::onFollowerDisconnected);
-			return true;
-		} else {
-			logger->log("Failed to connect to FollowerServer at " + host + ":" + QString::number(port));
-			followerSocket->deleteLater();
-			return false;
-		}
-	}
-
-
-	bool MainServer::disconnectFromFollower(const QString& host, quint16 port) {
-		if (MainServer::followerSocket->peerAddress().toString() == host && MainServer::followerSocket->peerPort() == port) {
-			disconnect(MainServer::followerSocket, nullptr, this, nullptr);
-			MainServer::followerSocket->disconnectFromHost();
-			if (MainServer::followerSocket->state() == QAbstractSocket::UnconnectedState || MainServer::followerSocket->waitForDisconnected(3000)) {
-				logger->log("Disconnected from follower at " + host + ":" + QString::number(port));
-				MainServer::followerSocket->deleteLater();
-				MainServer::followerSocket = nullptr;
-				return true;
-			}
-		}
-		logger->log("No active replica connection found at " + host + ":" + QString::number(port));
-		return false;
-	}
-
-	bool MainServer::connectToReplica(const QString& host, quint16 port) {
+	bool FollowerServer::connectToHost(const QString& host, quint16 port) {
 		QTcpSocket* replicaSocket = new QTcpSocket(this);
 		replicaSocket->connectToHost(host, port);
 
@@ -112,8 +74,8 @@ namespace SHIZ {
 			replicaSockets.append(replicaSocket);
 			logger->log("Connected to replica at " + host + ":" + QString::number(port));
 
-			connect(replicaSocket, &QTcpSocket::connected, this, &MainServer::onReplicaConnected);
-			connect(replicaSocket, &QTcpSocket::disconnected, this, &MainServer::onReplicaDisconnected);
+			connect(replicaSocket, &QTcpSocket::connected, this, &FollowerServer::onReplicaConnected);
+			connect(replicaSocket, &QTcpSocket::disconnected, this, &FollowerServer::onReplicaDisconnected);
 			return true;
 		} else {
 			logger->log("Failed to connect to replica at " + host + ":" + QString::number(port));
@@ -122,7 +84,7 @@ namespace SHIZ {
 		}
 	}
 
-	void MainServer::disconnectFromReplica(const QString& host, quint16 port) {
+	void FollowerServer::disconnectFromHost(const QString& host, quint16 port) {
 		for (auto socket : replicaSockets) {
 			if (socket->peerAddress().toString() == host && socket->peerPort() == port) {
 				disconnect(socket, nullptr, this, nullptr);
@@ -139,7 +101,7 @@ namespace SHIZ {
 	}
 
 
-	void MainServer::incomingConnection(qintptr socketDescriptor) {
+	void FollowerServer::incomingConnection(qintptr socketDescriptor) {
 		QTcpSocket* newSocket = new QTcpSocket(this);
 		newSocket->setSocketDescriptor(socketDescriptor);
 
@@ -148,13 +110,29 @@ namespace SHIZ {
 			QString initialMessage;
 			in >> initialMessage;
 
-			if (initialMessage == CLIENT) {
+			if (initialMessage == MAIN_SERVER) {
+				if (mainServerSocket) {
+					logger->log("MainServer connection already exists. Closing new connection.");
+					newSocket->close();
+					newSocket->deleteLater();
+					return;
+				}
+
+				mainServerSocket = newSocket;
+				connect(mainServerSocket, &QTcpSocket::readyRead, this, &FollowerServer::handleMainServerData);
+				connect(mainServerSocket, &QTcpSocket::disconnected, this, &FollowerServer::handleMainServerDisconnected);
+				logger->log("MainServer connected.");
+				emit statusMessage("MainServer connected.");
+				return;
+			}
+			else if (initialMessage == CLIENT) {
 				activeClients.append(newSocket);
-				connect(newSocket, &QTcpSocket::readyRead, this, &MainServer::handleClientData);
-				connect(newSocket, &QTcpSocket::disconnected, this, &MainServer::handleClientDisconnected);
+				connect(newSocket, &QTcpSocket::readyRead, this, &FollowerServer::handleClientData);
+				connect(newSocket, &QTcpSocket::disconnected, this, &FollowerServer::handleClientDisconnected);
 				logger->log("New client connection established.");
 				return;
-			} else {
+			}
+			else {
 				logger->log("Unknown connection type. Closing socket.");
 				newSocket->close();
 				newSocket->deleteLater();
@@ -168,7 +146,7 @@ namespace SHIZ {
 	}
 
 
-	bool MainServer::distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate) {
+	bool FollowerServer::distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate) {
 		bool atLeastOneSuccess = false;
 		for (QTcpSocket* replicaSocket : replicaSockets) {
 			QString replicaAddress = replicaSocket->peerAddress().toString();
@@ -281,7 +259,7 @@ namespace SHIZ {
 		return atLeastOneSuccess;
 	}
 
-	void MainServer::processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName) {
+	void FollowerServer::processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName) {
 		QDataStream out(clientSocket);
 
 		QSqlQuery query;
@@ -332,7 +310,7 @@ namespace SHIZ {
 		clientSocket->flush();
 	}
 
-	void MainServer::processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName) {
+	void FollowerServer::processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName) {
 		QSqlQuery query;
 		query.prepare("SELECT " FIELD_REPLICA_ADDRESS ", " FIELD_REPLICA_PORT " FROM " TABLE_FILE_REPLICAS
 					  " WHERE " FIELD_FILE_FILENAME " = :filename");
@@ -372,7 +350,7 @@ namespace SHIZ {
 		logger->log("Failed to fetch file from all replicas: " + fileName);
 	}
 
-	void MainServer::processFileListRequest(QTcpSocket* clientSocket) {
+	void FollowerServer::processFileListRequest(QTcpSocket* clientSocket) {
 		QSqlQuery query("SELECT " FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE " FROM " TABLE_FILES);
 		QStringList fileList;
 
@@ -387,7 +365,7 @@ namespace SHIZ {
 		clientSocket->flush();
 	}
 
-	void MainServer::processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts) {
+	void FollowerServer::processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts) {
 		QString username = parts.value(1);
 		QString password = parts.value(2);
 
@@ -409,7 +387,7 @@ namespace SHIZ {
 		clientSocket->flush();
 	}
 
-	void MainServer::processRegistrationRequest(QTcpSocket* clientSocket, const QStringList& parts) {
+	void FollowerServer::processRegistrationRequest(QTcpSocket* clientSocket, const QStringList& parts) {
 		QString username = parts.value(1);
 		QString password = parts.value(2);
 
@@ -436,7 +414,7 @@ namespace SHIZ {
 		clientSocket->flush();
 	}
 
-	void MainServer::processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize) {
+	void FollowerServer::processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize) {
 		QString uploadDate = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
 
 		QSqlQuery deleteQuery;
@@ -505,7 +483,7 @@ namespace SHIZ {
 		logger->log("File received and processed successfully: " + fileName);
 	}
 
-	bool MainServer::tryDownloadFromReplica(QTcpSocket* clientSocket, const QString& fileName, const QString& address, quint16 port) {
+	bool FollowerServer::tryDownloadFromReplica(QTcpSocket* clientSocket, const QString& fileName, const QString& address, quint16 port) {
 		QTcpSocket* replicaSocket = nullptr;
 
 		for (QTcpSocket* socket : replicaSockets) {
@@ -599,8 +577,50 @@ namespace SHIZ {
 		return true;
 	}
 
+	void FollowerServer::updateReplicaList(const QList<QListWidgetItem*>& replicas) {
+		replicaList.clear();
 
-	void MainServer::handleClientData() {
+		for (QListWidgetItem* item : replicas) {
+			if (item) {
+				replicaList.append(item->text()); // Добавляем текстовую информацию о репликах
+			}
+		}
+
+		logger->log("Replica list updated. Total replicas: " + QString::number(replicaList.size()));
+		//emit replicaListUpdated(replicaList); // Сигнал для обновления в UI или логах
+	}
+
+
+	void FollowerServer::handleMainData() {
+		QTcpSocket* mainSocket = qobject_cast<QTcpSocket*>(sender());
+		if (!mainSocket) return;
+
+		QDataStream in(mainSocket);
+		QString command;
+		in >> command;
+
+		if (command == COMMAND_REPLICAS_UPDATE) {
+			// Обновление списка реплик
+			QList<QListWidgetItem*> replicas;
+			in >> replicas;
+			updateReplicaList(replicas);
+		} else {
+			logger->log("Unknown command received from MainServer: " + command);
+		}
+	}
+
+
+	void FollowerServer::handleMainDisconnected() {
+		QTcpSocket* mainSocket = qobject_cast<QTcpSocket*>(sender());
+		if (mainSocket) {
+			mainSocket->deleteLater();
+			logger->log("MainServer disconnected.");
+			emit statusMessage("MainServer disconnected.");
+		}
+	}
+
+
+	void FollowerServer::handleClientData() {
 		QTcpSocket* clientSocket = qobject_cast<QTcpSocket*>(sender());
 		if (!clientSocket) return;
 
@@ -638,7 +658,7 @@ namespace SHIZ {
 		}
 	}
 
-	void MainServer::handleClientDisconnected() {
+	void FollowerServer::handleClientDisconnected() {
 		QTcpSocket* clientSocket = qobject_cast<QTcpSocket*>(sender());
 		if (clientSocket) {
 			activeClients.removeAll(clientSocket);
@@ -647,29 +667,12 @@ namespace SHIZ {
 		}
 	}
 
-	void MainServer::onFollowerConnected() {
-		logger->log("Follower connection established.");
-		emit statusMessage("Follower connected.");
-	}
-
-	void MainServer::onFollowerDisconnected() {
-		QTcpSocket* followerSocket = qobject_cast<QTcpSocket*>(sender());
-		if (followerSocket) {
-			QString followerAddress = followerSocket->peerAddress().toString() + ":" + QString::number(followerSocket->peerPort());
-			logger->log("Follower disconnected: " + followerAddress);
-			followerSocket->deleteLater();
-			emit followerDisconnected(followerAddress);
-			emit statusMessage("Follower disconnected.");
-		}
-	}
-
-
-	void MainServer::onReplicaConnected() {
+	void FollowerServer::onReplicaConnected() {
 		logger->log("Replica connection established.");
 		emit statusMessage("Replica connected.");
 	}
 
-	void MainServer::onReplicaDisconnected() {
+	void FollowerServer::onReplicaDisconnected() {
 		QTcpSocket* replicaSocket = qobject_cast<QTcpSocket*>(sender());
 		if (replicaSocket) {
 			QString replicaAddress = replicaSocket->peerAddress().toString() + ":" + QString::number(replicaSocket->peerPort());
