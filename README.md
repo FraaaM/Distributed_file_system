@@ -27,6 +27,12 @@ This project implements a simple Distributed File System (DFS) with a server-cli
   - Fetch a list of files.
 - Communication with the main server and replicas.
 
+### Administration and Access Control:
+- For each user, an administrator can assign read (r), write (w), and delete (d) permissions. These permissions determine which actions can be performed on visible files.
+- Administrators can create or modify user groups and assign users to these groups.
+- Administrators can promote users to administrators, granting them access to management functions.
+- In case of need, administrators can remove a user's account from the system.
+
 ## Requirements
 
 ### General Requirements:
