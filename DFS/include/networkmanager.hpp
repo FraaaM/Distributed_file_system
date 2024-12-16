@@ -23,7 +23,6 @@ namespace SHIZ {
 		NetworkManager(Logger* logger, QObject* parent = nullptr);
 		~NetworkManager();
 
-		//QString getFileInfo(const QString &fileName);
 		void setHostAndPort(const QString& host, quint16 port);
 
 	signals:
@@ -41,7 +40,7 @@ namespace SHIZ {
 		void userListResult(const QStringList& users);
 
 	public slots:
-		void onConnectRequest(const QString& host, quint16 port);
+		void onConnectRequest(const QString& host, quint16 port, bool isReconnrection = false);
 		void onDeleteFileRequest(const QString& fileName);
 		void onDeleteUserRequest(const QString& userName);
 		void onDisconnectRequest();

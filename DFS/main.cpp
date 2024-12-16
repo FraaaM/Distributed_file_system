@@ -14,7 +14,6 @@ int main(int argc, char *argv[]) {
 	SHIZ::NetworkManager* networkManager = new SHIZ::NetworkManager(&logger);
 
 	QThread* networkThread = new QThread;
-
 	networkManager->moveToThread(networkThread);
 	QObject::connect(networkThread, &QThread::finished, networkManager, &QObject::deleteLater);
 	networkThread->start();

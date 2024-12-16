@@ -393,15 +393,15 @@ namespace SHIZ {
         }
 
 		QStringList groupIds;
-        do {
-			groupIds << userGroupQuery.value(0).toString().split(",");
-		} while (userGroupQuery.next());
+		groupIds << userGroupQuery.value(0).toString().split(",");
 
 		QStringList queryConditions;
-		for(const QString& elem : groupIds){
-			queryConditions << QString(FIELD_FILE_GROUP_ID " LIKE '%,%1'").arg(elem);
-			queryConditions << QString(FIELD_FILE_GROUP_ID " = %1").arg(elem);
-        }
+		for(const QString& groupId : groupIds){
+			queryConditions << QString(FIELD_FILE_GROUP_ID " LIKE '%1,%'").arg(groupId);
+			queryConditions << QString(FIELD_FILE_GROUP_ID " LIKE '%,%1,%'").arg(groupId);
+			queryConditions << QString(FIELD_FILE_GROUP_ID " LIKE '%,%1'").arg(groupId);
+			queryConditions << QString(FIELD_FILE_GROUP_ID " = %1").arg(groupId);
+		}
 
 		QString queryBase = "SELECT " FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ", " FIELD_FILE_GROUP_ID
 							" FROM " TABLE_FILES " WHERE " + queryConditions.join(" OR ");

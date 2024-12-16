@@ -12,7 +12,6 @@ namespace SHIZ {
 	{
 		QVBoxLayout* layout = new QVBoxLayout(this);
 
-
 		statusLabel = new QLabel(this);
 		layout->addWidget(statusLabel);
 		connect(networkManager, &NetworkManager::statusMessage, this, &MainWidget::onStatusMessageReceived);
@@ -89,7 +88,7 @@ namespace SHIZ {
 	void MainWidget::onDownloadFileResult(bool success) {
 		setButtonLock(false);
 		if (success) {
-			QMessageBox::information(this, "Uploading", "The file has been uploaded successfully.");
+			QMessageBox::information(this, "Downloading", "The file downloaded successfully.");
 		} else {
 			QMessageBox::warning(this, "Download", "The file could not be downloaded.");
 		}
@@ -156,7 +155,6 @@ namespace SHIZ {
 			} else {
 				QMessageBox::warning(this, "Delete", "You don't have right delete this file.");
 			}
-
 		} else {
 			QMessageBox::warning(this, "Delete", "No file selected.");
 		}

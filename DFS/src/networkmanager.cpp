@@ -22,33 +22,13 @@ namespace SHIZ {
 	}
 
 
-	// QString NetworkManager::getFileInfo(const QString &fileName){
-	// 	QDataStream out(tcpSocket);
-	// 	out << QString(COMMAND_GET_FILE_INFO) << fileName;
-	// 	tcpSocket->flush();
-
-	// 	if (tcpSocket->waitForReadyRead(3000)) {
-	// 		QDataStream in(tcpSocket);
-	// 		QString response;
-	// 		QString groupFile;
-
-	// 		in >> response;
-	// 		if (response == RESPONSE_FILE_INFO) {
-	// 			in >> groupFile;
-	// 			return groupFile;
-	// 		}
-	// 	}
-	// 	return QString();
-	// }
-
-
 	void NetworkManager::setHostAndPort(const QString& host, quint16 port) {
 		this->host = host;
 		this->port = port;
 	}
 
 
-	void NetworkManager::onConnectRequest(const QString& host, quint16 port) {
+	void NetworkManager::onConnectRequest(const QString& host, quint16 port, bool isReconnrection) {
 		this->host = host;
 		this->port = port;
 		tcpSocket->connectToHost(host, port);
@@ -56,11 +36,12 @@ namespace SHIZ {
 			logger->log("Connected to main server successfully");
 			QDataStream out(tcpSocket);
 			out << QString(CLIENT);
-			tcpSocket->flush();
-			emit connectResult(true);
+			if(!isReconnrection)
+				emit connectResult(true);
 		} else {
 			logger->log("Failed to main server connect");
-			emit connectResult(false);
+			if(!isReconnrection)
+				emit connectResult(false);
 		}
 	}
 
@@ -442,6 +423,6 @@ namespace SHIZ {
 		if (host.isEmpty() || tcpSocket->state() != QTcpSocket::UnconnectedState) {
 			return;
 		}
-		onConnectRequest(host, port);
+		onConnectRequest(host, port, true);
 	}
 }

@@ -9,7 +9,7 @@
 #include "networkmanager.hpp"
 #include "registrationwidget.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	class Window: public QWidget{
 		Q_OBJECT
 

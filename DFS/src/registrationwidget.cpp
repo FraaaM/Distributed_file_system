@@ -4,12 +4,11 @@
 
 #include "registrationwidget.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	RegistrationWidget::RegistrationWidget(Logger* logger, NetworkManager* manager, QWidget* parent)
 		: logger(logger), networkManager(manager), QWidget(parent)
 	{
 		QVBoxLayout* layout = new QVBoxLayout(this);
-
 
 		QLabel* loginLabel = new QLabel("Login:", this);
 		layout->addWidget(loginLabel);

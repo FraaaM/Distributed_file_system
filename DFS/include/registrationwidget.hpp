@@ -5,7 +5,7 @@
 
 #include "networkmanager.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	class RegistrationWidget : public QWidget{
 		Q_OBJECT
 

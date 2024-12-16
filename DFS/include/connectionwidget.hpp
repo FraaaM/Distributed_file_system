@@ -5,7 +5,7 @@
 
 #include "networkmanager.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	class ConnectionWidget : public QWidget {
 		Q_OBJECT
 
@@ -24,7 +24,7 @@ namespace SHIZ{
 			ConnectionWidget(Logger* logger, NetworkManager* manager, QWidget* parent = nullptr);
 
 		signals:
-			void connectRequest(const QString &host, quint16 port);
+			void connectRequest(const QString &host, quint16 port, bool isReconnrection = false);
 			void connectSuccessful(const QString &host, quint16 port);
 
 		public slots:

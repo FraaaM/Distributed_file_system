@@ -6,12 +6,11 @@
 #include "adminwidget.hpp"
 #include "clientmacros.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	AdminWidget::AdminWidget(Logger* logger, NetworkManager* manager, QWidget* parent)
 		: logger(logger), networkManager(manager), QWidget(parent)
 	{
 		QVBoxLayout* layout = new QVBoxLayout(this);
-
 
 		statusLabel = new QLabel(this);
 		layout->addWidget(statusLabel);

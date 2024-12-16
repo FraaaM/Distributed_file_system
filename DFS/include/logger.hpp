@@ -3,7 +3,7 @@
 #include <QDateTime>
 #include <QFile>
 
-namespace SHIZ{
+namespace SHIZ {
 	class Logger : public QObject {
 		Q_OBJECT
 

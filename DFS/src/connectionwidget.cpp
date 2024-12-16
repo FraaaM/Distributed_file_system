@@ -10,7 +10,6 @@ namespace SHIZ {
 	{
 		QVBoxLayout *layout = new QVBoxLayout(this);
 
-
 		QLabel* apilabel = new QLabel("Enter the server address: ", this);
 		layout->addWidget(apilabel);
 

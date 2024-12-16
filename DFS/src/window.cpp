@@ -3,7 +3,7 @@
 
 #include "window.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	Window::Window(Logger* logger, NetworkManager* networkManager, QWidget* parent)
 		: logger(logger), networkManager(networkManager), QWidget(parent)
 	{

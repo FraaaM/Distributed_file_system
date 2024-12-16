@@ -2,15 +2,14 @@
 #include <QMessageBox>
 #include <QVBoxLayout>
 
-#include "loginwidget.hpp"
 #include "clientmacros.hpp"
+#include "loginwidget.hpp"
 
 namespace SHIZ {
 	LoginWidget::LoginWidget(Logger* logger, NetworkManager* manager, QWidget* parent)
 		: logger(logger), networkManager(manager), QWidget(parent)
 	{
 		QVBoxLayout* layout = new QVBoxLayout(this);
-
 
 		QLabel* label = new QLabel("Login:", this);
 		layout->addWidget(label);

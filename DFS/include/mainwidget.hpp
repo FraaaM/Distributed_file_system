@@ -7,7 +7,7 @@
 
 #include "networkmanager.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	class MainWidget : public QWidget{
 		Q_OBJECT
 
@@ -64,6 +64,5 @@ namespace SHIZ{
 			void onLogoutButtonClicked();
 			void onStatusMessageReceived(const QString& message);
 			void onUploadButtonClicked();
-
 	};
 }

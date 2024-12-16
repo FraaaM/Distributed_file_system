@@ -31,6 +31,11 @@ set(PROJECT_SOURCES
         include/window.hpp src/window.cpp
 )
 
+if(WIN32)
+    set(WINDOWS_RESOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/assets/app.rc")
+    list(APPEND PROJECT_SOURCES ${WINDOWS_RESOURCE_FILE})
+endif()
+
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(DFS
         MANUAL_FINALIZATION

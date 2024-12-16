@@ -8,7 +8,7 @@
 #include "logger.hpp"
 #include "networkmanager.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
     class AdminWidget : public QWidget{
         Q_OBJECT
 

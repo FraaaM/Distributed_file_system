@@ -5,7 +5,7 @@
 
 #include "networkmanager.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	class LoginWidget  : public QWidget{
 		Q_OBJECT
 
@@ -39,6 +39,5 @@ namespace SHIZ{
 			void onDisconnectButtonClicked();
 			void onEnterButtonClicked();
 			void onRegisterButtonClicked();
-
 	};
 }
