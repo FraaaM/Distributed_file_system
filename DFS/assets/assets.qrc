@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="">
-		<file>images/mortis.jpg</file>
+		<file>images\mortis.jpg</file>
+		<file>images\DFS.png</file>
     </qresource>
 </RCC>

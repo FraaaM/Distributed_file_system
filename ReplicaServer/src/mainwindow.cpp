@@ -10,6 +10,8 @@ namespace SHIZ{
 		QWidget* centralWidget = new QWidget(this);
 		QVBoxLayout* layout = new QVBoxLayout(centralWidget);
 
+		this->setWindowIcon(QIcon(":images/ReplicaServer.png"));
+
 		portInput = new QLineEdit(this);
 		portInput->setPlaceholderText("Replica Port");
 		portInput->setText("12345");

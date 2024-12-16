@@ -23,23 +23,36 @@ namespace SHIZ {
 		NetworkManager(Logger* logger, QObject* parent = nullptr);
 		~NetworkManager();
 
-		bool connectToHost(const QString& host, quint16 port);
-		bool deleteFile(const QString& fileName);
-		bool deleteUser(const QString& userName);
-		bool downloadFile(const QString& filePath);
-		void disconnectFromHost();
-		QString getFileInfo(const QString &fileName);
-		QString getUserInfo(const QString &userName);
-		QStringList requestFileList(const QString &userName);
-		QStringList requestUserList();
-		QString sendLoginRequest(const QString& login, const QString& password);
-		bool sendRegistrationRequest(const QString& login, const QString& password, const QString& confirmPassword);
+		//QString getFileInfo(const QString &fileName);
 		void setHostAndPort(const QString& host, quint16 port);
-        bool updateUser(const QString& userName, const QString& key, const QString& value);
-		bool uploadFile(const QString& filePath, const QString& owner);
 
 	signals:
+		void connectResult(bool success);
+		void deleteFileResult(bool success);
+		void deleteUserResult(bool success);
+		void downloadFileResult(bool success);
+		void listFileResult(const QStringList& fileList);
+		void loginResult(const QString& success, const QString& login);
+		void registrationResult(bool success, const QString& message);
 		void statusMessage(const QString& message);
+		void updateUserResult(bool success);
+		void uploadFileResult(bool success);
+		void userInfoResult(const QString &userInfo);
+		void userListResult(const QStringList& users);
+
+	public slots:
+		void onConnectRequest(const QString& host, quint16 port);
+		void onDeleteFileRequest(const QString& fileName);
+		void onDeleteUserRequest(const QString& userName);
+		void onDisconnectRequest();
+		void onDownloadFileRequest(const QString& filePath);
+		void onListFileRequest(const QString& userName);
+		void onLoginRequest(const QString& login, const QString& password);
+		void onRegistrationRequest(const QString& login, const QString& password);
+		void onUpdateUserRequest(const QString& userName, const QString& key, const QString& value);
+		void onUploadFileRequest(const QString& filePath, const QString& owner);
+		void onUserInfoRequest(const QString &userInfo);
+		void onUserListRequest();
 
 	private slots:
 		void onConnected();

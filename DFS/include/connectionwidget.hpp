@@ -15,7 +15,7 @@ namespace SHIZ{
 			QLineEdit* hostInput;
 			QLineEdit* portInput;
 
-			QPushButton* enterButton;
+			QPushButton* connectButton;
 			QPushButton* quitButton;
 
 			Logger* logger;
@@ -24,10 +24,13 @@ namespace SHIZ{
 			ConnectionWidget(Logger* logger, NetworkManager* manager, QWidget* parent = nullptr);
 
 		signals:
-			void requestConnection(const QString &host, quint16 port);
-			void ConnectionSuccessful(const QString &host, quint16 port);
+			void connectRequest(const QString &host, quint16 port);
+			void connectSuccessful(const QString &host, quint16 port);
+
+		public slots:
+			void onConnectResult(bool success);
 
 		private slots:
-			void onEnterButtonClicked();
+			void onConnectButtonClicked();
 	};
 }

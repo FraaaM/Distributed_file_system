@@ -19,6 +19,7 @@ namespace SHIZ{
 		QTextStream out(&logFile);
 		QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
 		out << "[" << timestamp << "] " << message << "\n";
+		//qDebug() << "[" << timestamp << "] " << message << "\n";
 		logFile.flush();
 	}
 }

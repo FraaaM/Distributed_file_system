@@ -10,6 +10,7 @@ namespace SHIZ {
 	{
 		QVBoxLayout *layout = new QVBoxLayout(this);
 
+
 		QLabel* apilabel = new QLabel("Enter the server address: ", this);
 		layout->addWidget(apilabel);
 
@@ -23,34 +24,37 @@ namespace SHIZ {
 		portInput->setText("1234");
 		layout->addWidget(portInput);
 
-		enterButton = new QPushButton("Connect", this);
-		layout->addWidget(enterButton);
-		connect(enterButton, &QPushButton::clicked, this, &ConnectionWidget::onEnterButtonClicked);
+		connectButton = new QPushButton("Connect", this);
+		layout->addWidget(connectButton);
+		connect(connectButton, &QPushButton::clicked, this, &ConnectionWidget::onConnectButtonClicked);
 
 		quitButton = new QPushButton("Quit", this);
 		layout->addWidget(quitButton);
 		connect(quitButton, &QPushButton::clicked, QCoreApplication::instance(), &QApplication::quit);
 
+		connect(networkManager, &NetworkManager::connectResult, this, &ConnectionWidget::onConnectResult);
+
 		resize(400,300);
 		setLayout(layout);
 	}
 
-	void ConnectionWidget::onEnterButtonClicked() {
+
+	void ConnectionWidget::onConnectResult(bool success) {
+		if (success) {
+			emit connectSuccessful(hostInput->text(), portInput->text().toUShort());
+		}
+	}
+
+
+	void ConnectionWidget::onConnectButtonClicked() {
 		QString host = hostInput->text();
 		bool ok;
 		quint16 port = portInput->text().toUShort(&ok);
 
 		if (!host.isEmpty() && ok) {
-			bool success = networkManager->connectToHost(host, port);
-
-			if (success) {
-				networkManager->setHostAndPort(host, port);
-				emit ConnectionSuccessful(host, port);
-			} else {
-				logger->log("Failed to connect to server");
-			}
+			emit connectRequest(host, port);
 		} else {
-			logger->log("Invalid host or port");
+			logger->log("Invalid host or port.");
 		}
 	}
 }
