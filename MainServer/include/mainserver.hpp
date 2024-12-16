@@ -35,13 +35,18 @@ namespace SHIZ{
 			void receiveReplicaSockets();
 
 			bool distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate);
-			void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName);
+            void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName);
+			void processDeleteUserRequest(QTcpSocket* clientSocket, const QString& userName);
 			void processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName);
-			void processFileListRequest(QTcpSocket* clientSocket);
+            void processFileListRequest(QTcpSocket* clientSocket, const QString& userName);
+			void processGetFileInfoRequest(QTcpSocket* clientSocket, const QString& fileName);
+			void processGetUserInfoRequest(QTcpSocket* clientSocket, const QString& userName);
 			void processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts);
 			void processRegistrationRequest(QTcpSocket* clientSocket, const QStringList& parts);
 			void processReplicaConnection(QTcpSocket* replicaSocket);
+			void processUpdateUserRequest(QTcpSocket* clientSocket, const QString& userName, const QString& key, const QString& value);
 			void processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize);
+			void processUserListRequest(QTcpSocket* clientSocket);
 			bool tryDownloadFromReplica(QTcpSocket* clientSocket, const QString& fileName, const QString& address, quint16 port);
 
 		signals:

@@ -5,7 +5,7 @@
 
 #include "networkmanager.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	class RegistrationWidget : public QWidget{
 		Q_OBJECT
 
@@ -26,9 +26,14 @@ namespace SHIZ{
 			RegistrationWidget(Logger* logger, NetworkManager* manager, QWidget* parent = nullptr);
 
 		signals:
+			void disconnectRequest();
+			void registrationRequest(const QString& login, const QString& password);
 			void registrationSuccessful(const QString& login);
 			void showConnectionWindow();
 			void showLoginWindow();
+
+		public slots:
+			void onRegistrationResult(bool success, const QString& message);
 
 		private slots:
 			void onDisconnectButtonClicked();

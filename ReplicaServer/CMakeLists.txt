@@ -14,6 +14,10 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Sql)
 
 include_directories(include)
 
+set(RESOURCE_FILES
+    assets/assets.qrc
+)
+
 set(PROJECT_SOURCES
         main.cpp
         include/logger.hpp src/logger.cpp
@@ -22,19 +26,27 @@ set(PROJECT_SOURCES
         include/replicaserver.hpp src/replicaserver.cpp
 )
 
+if(WIN32)
+    set(WINDOWS_RESOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/assets/app.rc")
+    list(APPEND PROJECT_SOURCES ${WINDOWS_RESOURCE_FILE})
+endif()
+
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(ReplicaServer
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+		${RESOURCE_FILES}
     )
 else()
     if(ANDROID)
         add_library(ReplicaServer SHARED
             ${PROJECT_SOURCES}
+            ${RESOURCE_FILES}
         )
     else()
         add_executable(ReplicaServer
             ${PROJECT_SOURCES}
+            ${RESOURCE_FILES}
         )
     endif()
 endif()

@@ -1,6 +1,6 @@
 #include "logger.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	Logger::Logger(QObject* parent): QObject(parent), logFile("log.txt") {
 		if (!logFile.open(QIODevice::Append | QIODevice::Text)) {
 			qDebug() << "Failed to open log file for writing.";

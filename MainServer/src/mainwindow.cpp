@@ -10,6 +10,8 @@ namespace SHIZ{
 		QWidget* centralWidget = new QWidget(this);
 		QVBoxLayout* layout = new QVBoxLayout(centralWidget);
 
+		this->setWindowIcon(QIcon(":images/MainServer.png"));
+
 		portInput = new QLineEdit(this);
 		portInput->setPlaceholderText("Main Server Port");
 		portInput->setText("1234");
