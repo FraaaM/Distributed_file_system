@@ -32,15 +32,23 @@ namespace SHIZ{
 
         void setCurrentLogin(const QString& login);
 
-    signals:
-        void showLoginWindow();
+	signals:
+		void deleteUserRequest(const QString& userName);
+		void showLoginWindow();
+		void updateUserRequest(const QString& userName, const QString& key, const QString& value);
+		void userListRequest();
+
+	public slots:
+		void onDeleteUserResult(bool success);
+		void onUpdateUserResult(bool success);
+		void onUserListResult(const QStringList& users);
+		void onRefreshButtonClicked();
 
 	private slots:
 		void onCellChanged(int row, int column);
         void onDeleteButtonClicked();
         void onFilterTextChanged(const QString& text);
         void onLogoutButtonClicked();
-        void onRefreshButtonClicked();
 		void onStatusMessageReceived(const QString& message);
     };
 }

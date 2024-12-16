@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="">
+		<file>images\ReplicaServer.png</file>
+    </qresource>
+</RCC>

@@ -31,7 +31,7 @@ namespace SHIZ{
 
 		private slots:
 			void onAdminLoginSuccessful(const QString& login);
-			void onConnectionSuccessful (const QString &host, quint16 port);
+			void onConnectSuccessful (const QString &host, quint16 port);
 			void onRegistrationSuccessful(const QString& login);
 			void onSwitchToAdminWindow();
 			void onSwitchToConnectionWindow();
