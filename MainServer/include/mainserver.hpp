@@ -3,6 +3,7 @@
 #include <QSqlDatabase>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QPair>
 
 #include "logger.hpp"
 
@@ -14,13 +15,15 @@ namespace SHIZ{
 			QSqlDatabase dataBase;
 			QList<QTcpSocket*> activeClients;
 			QVector<QTcpSocket*> replicaSockets;
-			QTcpSocket* followerSocket;
+			QTcpSocket* ptrFollowerSocket;
 			Logger* logger;
 
 		public:
 			MainServer(Logger* logger, QObject *parent = nullptr);
 			~MainServer();
 
+			bool isFollowerConnected() const;
+			QPair<QString, quint16> getFollowerIpPort();
 			void closeServer();
 			bool connectToFollower(const QString& host, quint16 port); ///////////////////////////////
 			bool disconnectFromFollower(const QString& host, quint16 port); //!!!!!!!!!!!!!!

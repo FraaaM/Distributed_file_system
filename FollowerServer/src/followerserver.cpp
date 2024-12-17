@@ -15,7 +15,6 @@ namespace SHIZ {
 	{
 		dataBase = QSqlDatabase::addDatabase(DATABASE_TYPE);
 		dataBase.setDatabaseName(DATABASE_NAME);
-		mainServerSocket = nullptr;
 
 		if (!dataBase.open()) {
 			logger->log("Failed to connect to database.");
@@ -26,13 +25,19 @@ namespace SHIZ {
 		query.exec("CREATE TABLE IF NOT EXISTS " TABLE_USERS " ("
 				   FIELD_USER_ID " INTEGER PRIMARY KEY AUTOINCREMENT, "
 				   FIELD_USER_USERNAME " TEXT UNIQUE, "
-				   FIELD_USER_PASSWORD " TEXT)");
+				   FIELD_USER_PASSWORD " TEXT, "
+				   FIELD_USER_IS_ADMIN " NUMERIC,"
+				   FIELD_USER_GROUP_ID " TEXT,"
+				   FIELD_USER_RIGHTS " TEXT)"
+				   );
 		query.exec("CREATE TABLE IF NOT EXISTS " TABLE_FILES " ("
 				   FIELD_FILE_ID " INTEGER PRIMARY KEY AUTOINCREMENT, "
 				   FIELD_FILE_FILENAME " TEXT, "
 				   FIELD_FILE_OWNER " TEXT, "
 				   FIELD_FILE_SIZE " INTEGER, "
-				   FIELD_FILE_UPLOAD_DATE " TEXT)");
+				   FIELD_FILE_UPLOAD_DATE " TEXT, "
+				   FIELD_FILE_GROUP_ID     " INTEGER)"
+				   );
 		query.exec("CREATE TABLE IF NOT EXISTS " TABLE_FILE_REPLICAS " ("
 				   FIELD_REPLICA_ID " INTEGER PRIMARY KEY AUTOINCREMENT, "
 				   FIELD_FILE_FILENAME " TEXT, "
@@ -40,6 +45,24 @@ namespace SHIZ {
 				   FIELD_REPLICA_PORT " INTEGER,"
 				   FIELD_FILE_UPLOAD_DATE " TEXT)");
 		logger->log("Query CREATE TABLE last error: " + query.lastError().text());
+
+		QString username("admin");
+		QString password("!For@each");
+		QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
+		QString isAdmin("true");
+		QString group("1");
+		QString rights("rwd");
+
+		query.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ", " FIELD_USER_IS_ADMIN ", " FIELD_FILE_GROUP_ID ", " FIELD_USER_RIGHTS ") VALUES (?, ?, ?, ?, ?)");
+		query.addBindValue(username);
+		query.addBindValue(hashedPassword);
+		query.addBindValue(isAdmin);
+		query.addBindValue(group);
+		query.addBindValue(rights);
+
+		if(!query.exec()){
+			logger->log("Query INSERT ADMIN last error: " + query.lastError().text());
+		}
 
 		logger->log("Server initialized successfully.");
 	}
@@ -111,16 +134,9 @@ namespace SHIZ {
 			in >> initialMessage;
 
 			if (initialMessage == MAIN_SERVER) {
-				if (mainServerSocket) {
-					logger->log("MainServer connection already exists. Closing new connection.");
-					newSocket->close();
-					newSocket->deleteLater();
-					return;
-				}
-
-				mainServerSocket = newSocket;
-				connect(mainServerSocket, &QTcpSocket::readyRead, this, &FollowerServer::handleMainServerData);
-				connect(mainServerSocket, &QTcpSocket::disconnected, this, &FollowerServer::handleMainServerDisconnected);
+				FollowerServer::mainServerSocket = newSocket;
+				connect(newSocket, &QTcpSocket::readyRead, this, &FollowerServer::handleMainData);
+				connect(newSocket, &QTcpSocket::disconnected, this, &FollowerServer::handleMainDisconnected);
 				logger->log("MainServer connected.");
 				emit statusMessage("MainServer connected.");
 				return;
@@ -138,12 +154,15 @@ namespace SHIZ {
 				newSocket->deleteLater();
 				return;
 			}
-		} else {
+		}
+		else {
+			// Обработка отсутствия данных для идентификации типа подключения
 			logger->log("No data received to identify connection type. Closing socket.");
 			newSocket->close();
 			newSocket->deleteLater();
 		}
 	}
+
 
 
 	bool FollowerServer::distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate) {
@@ -310,6 +329,23 @@ namespace SHIZ {
 		clientSocket->flush();
 	}
 
+	void FollowerServer::processDeleteUserRequest(QTcpSocket* clientSocket, const QString& userName) {
+		QDataStream out(clientSocket);
+
+		QSqlQuery query;
+		query.prepare("DELETE FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
+		query.bindValue(":username", userName);
+		if (!query.exec()) {
+			logger->log("Failed to delete user from database: " + query.lastError().text());
+			out << QString(RESPONSE_DELETE_FAILED);
+			clientSocket->flush();
+			return;
+		}
+
+		out << QString(RESPONSE_DELETE_SUCCESS);
+		clientSocket->flush();
+	}
+
 	void FollowerServer::processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName) {
 		QSqlQuery query;
 		query.prepare("SELECT " FIELD_REPLICA_ADDRESS ", " FIELD_REPLICA_PORT " FROM " TABLE_FILE_REPLICAS
@@ -350,19 +386,96 @@ namespace SHIZ {
 		logger->log("Failed to fetch file from all replicas: " + fileName);
 	}
 
-	void FollowerServer::processFileListRequest(QTcpSocket* clientSocket) {
-		QSqlQuery query("SELECT " FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE " FROM " TABLE_FILES);
-		QStringList fileList;
+	void FollowerServer::processFileListRequest(QTcpSocket* clientSocket, const QString& userName) {
+		QDataStream out(clientSocket);
 
-		while (query.next()) {
-			QString fileInfo = query.value(0).toString() + "|" + query.value(1).toString() + "|" +
-							   query.value(2).toString() + "|" + query.value(3).toString();
-			fileList << fileInfo;
+		QSqlQuery userGroupQuery;
+		userGroupQuery.prepare("SELECT " FIELD_USER_GROUP_ID " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
+		userGroupQuery.bindValue(":username", userName);
+
+		if (!userGroupQuery.exec()) {
+			logger->log("Failed to get user groups: " + userGroupQuery.lastError().text());
+			return;
 		}
 
-		QDataStream out(clientSocket);
+		if (!userGroupQuery.next()) {
+			out << QString(RESPONSE_USER_DOES_NOT_EXIST);
+			clientSocket->flush();
+			return;
+		}
+
+		QStringList groupIds;
+		groupIds << userGroupQuery.value(0).toString().split(",");
+
+		QStringList queryConditions;
+		for(const QString& groupId : groupIds){
+			queryConditions << QString(FIELD_FILE_GROUP_ID " LIKE '%1,%'").arg(groupId);
+			queryConditions << QString(FIELD_FILE_GROUP_ID " LIKE '%,%1,%'").arg(groupId);
+			queryConditions << QString(FIELD_FILE_GROUP_ID " LIKE '%,%1'").arg(groupId);
+			queryConditions << QString(FIELD_FILE_GROUP_ID " = %1").arg(groupId);
+		}
+
+		QString queryBase = "SELECT " FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ", " FIELD_FILE_GROUP_ID
+							" FROM " TABLE_FILES " WHERE " + queryConditions.join(" OR ");
+
+		QSqlQuery query;
+		query.prepare(queryBase);
+
+		if (!query.exec()) {
+			logger->log("Failed to execute query: " + query.lastError().text());
+			return;
+		}
+
+		QStringList fileList;
+		while (query.next()) {
+			QString fileDetails = query.value(0).toString() + "|" + query.value(1).toString() + "|" +
+								  query.value(2).toString() + "|" + query.value(3).toString() + "|" +
+								  query.value(4).toString();
+			fileList << fileDetails;
+		}
+
 		out << QString(RESPONSE_FILES_LIST) << fileList;
 		clientSocket->flush();
+	}
+
+	void FollowerServer::processGetFileInfoRequest(QTcpSocket *clientSocket, const QString &fileName){
+		QDataStream out(clientSocket);
+
+		QSqlQuery getGroupOfFile;
+		getGroupOfFile.prepare("SELECT " FIELD_FILE_GROUP_ID " FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename AND ");
+		getGroupOfFile.bindValue(":filename", fileName);
+
+		if (!getGroupOfFile.exec()) {
+			logger->log("Error getting group of file:" + getGroupOfFile.lastError().text());
+
+			return;
+		}
+
+		if (getGroupOfFile.next()) {
+			QString fileInfo = getGroupOfFile.value(0).toString();
+			out  << QString(RESPONSE_FILE_INFO) << fileInfo;
+			clientSocket->flush();
+		}
+	}
+
+	void FollowerServer::processGetUserInfoRequest(QTcpSocket *clientSocket, const QString &userName){
+		QDataStream out(clientSocket);
+
+		QSqlQuery getUserInfoQuery;
+		getUserInfoQuery.prepare("SELECT " FIELD_USER_RIGHTS ", " FIELD_USER_GROUP_ID " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
+		getUserInfoQuery.bindValue(":username", userName);
+
+		if (!getUserInfoQuery.exec()) {
+			logger->log("Error getting rights of user:" + getUserInfoQuery.lastError().text());
+			return;
+		}
+
+		if (getUserInfoQuery.next()) {
+			QString userInfo = getUserInfoQuery.value(0).toString() + "|"
+							   + getUserInfoQuery.value(1).toString();
+			out  << QString(RESPONSE_USER_INFO) << userInfo;
+			clientSocket->flush();
+		}
 	}
 
 	void FollowerServer::processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts) {
@@ -374,12 +487,13 @@ namespace SHIZ {
 		QString hashedPassword = QString(QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
 
 		QSqlQuery query;
-		query.prepare("SELECT " FIELD_USER_PASSWORD " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
+		query.prepare("SELECT " FIELD_USER_PASSWORD ", " FIELD_USER_IS_ADMIN " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
 		query.bindValue(":username", username);
 
 		if (query.exec() && query.next()) {
 			QString storedPassword = query.value(0).toString();
-			out << (storedPassword == hashedPassword ? QString(RESPONSE_LOGIN_SUCCESS) : QString(RESPONSE_LOGIN_FAILED));
+			QString isAdmin = query.value(1).toString();
+			out << (storedPassword == hashedPassword ? ((isAdmin == QString("true") ? QString(RESPONSE_LOGIN_ADMIN_SUCCESS) : QString(RESPONSE_LOGIN_USER_SUCCESS))) : QString(RESPONSE_LOGIN_FAILED));
 		} else {
 			out << QString(RESPONSE_LOGIN_FAILED);
 			logger->log("Login failed: " + query.lastError().text());
@@ -404,7 +518,7 @@ namespace SHIZ {
 			logger->log("Registration failed: user already exists.");
 		} else {
 			QSqlQuery insertQuery;
-			insertQuery.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ") VALUES (?, ?)");
+			insertQuery.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ", " FIELD_USER_GROUP_ID ", " FIELD_USER_RIGHTS ") VALUES (?, ?, 1, 'rwd')");
 			insertQuery.addBindValue(username);
 			insertQuery.addBindValue(hashedPassword);
 
@@ -412,6 +526,31 @@ namespace SHIZ {
 			if (insertQuery.lastError().isValid()) qDebug() << "Registration failed: " << insertQuery.lastError();
 		}
 		clientSocket->flush();
+	}
+
+	void FollowerServer::processUpdateUserRequest(QTcpSocket *clientSocket, const QString &userName, const QString &key, const QString& value){
+		QDataStream out(clientSocket);
+
+		QSqlQuery updateUserQuery;
+		if(key == FIELD_USER_GROUP_ID) {
+			updateUserQuery.prepare("UPDATE " TABLE_USERS " SET " FIELD_USER_GROUP_ID " = :value WHERE " FIELD_USER_USERNAME " = :username");
+		} else if(key == FIELD_USER_RIGHTS) {
+			updateUserQuery.prepare("UPDATE " TABLE_USERS " SET " FIELD_USER_RIGHTS " = :value WHERE " FIELD_USER_USERNAME " = :username");
+		} else if(key == FIELD_USER_IS_ADMIN) {
+			updateUserQuery.prepare("UPDATE " TABLE_USERS " SET " FIELD_USER_IS_ADMIN " = :value WHERE " FIELD_USER_USERNAME " = :username");
+		}
+		updateUserQuery.bindValue(":value", value);
+		updateUserQuery.bindValue(":username", userName);
+
+		if (!updateUserQuery.exec()) {
+			logger->log("Error updating an user data:" + updateUserQuery.lastError().text());
+
+			out << QString(RESPONSE_UPDATE_USER_FAILED);
+			clientSocket->flush();
+		} else {
+			out << QString(RESPONSE_UPDATE_USER_SUCCESS);
+			clientSocket->flush();
+		}
 	}
 
 	void FollowerServer::processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize) {
@@ -464,12 +603,29 @@ namespace SHIZ {
 			return;
 		}
 
+		QSqlQuery userGroupQuery;
+		userGroupQuery.prepare("SELECT " FIELD_USER_GROUP_ID " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
+		userGroupQuery.bindValue(":username", owner);
+
+		if (!userGroupQuery.exec()) {
+			out << QString(RESPONSE_UPLOAD_FAILED);
+			clientSocket->flush();
+			logger->log("Failed to find group of user in database: " + userGroupQuery.lastError().text());
+			return;
+		}
+
+		QString groupIds;
+		while(userGroupQuery.next()){
+			groupIds = userGroupQuery.value(0).toString();
+		}
+
 		QSqlQuery query;
-		query.prepare("INSERT INTO " TABLE_FILES " (" FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ") VALUES (?, ?, ?, ?)");
+		query.prepare("INSERT INTO " TABLE_FILES " (" FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ", " FIELD_FILE_GROUP_ID ") VALUES (?, ?, ?, ?, ?)");
 		query.addBindValue(fileName);
 		query.addBindValue(owner);
 		query.addBindValue(fileSize);
 		query.addBindValue(uploadDate);
+		query.addBindValue(groupIds);
 
 		if (!query.exec()) {
 			out << QString(RESPONSE_UPLOAD_FAILED);
@@ -481,6 +637,21 @@ namespace SHIZ {
 		out << QString(RESPONSE_UPLOAD_SUCCESS);
 		clientSocket->flush();
 		logger->log("File received and processed successfully: " + fileName);
+	}
+
+	void FollowerServer::processUserListRequest(QTcpSocket* clientSocket) {
+		QSqlQuery query("SELECT " FIELD_USER_USERNAME ", " FIELD_USER_IS_ADMIN ", " FIELD_USER_GROUP_ID ", " FIELD_USER_RIGHTS " FROM " TABLE_USERS);
+		QStringList userList;
+
+		while (query.next()) {
+			QString userInfo = query.value(0).toString() + "|" + query.value(1).toString() + "|" +
+							   query.value(2).toString() + "|" + query.value(3).toString();
+			userList << userInfo;
+		}
+
+		QDataStream out(clientSocket);
+		out << QString(RESPONSE_USERS_LIST) << userList;
+		clientSocket->flush();
 	}
 
 	bool FollowerServer::tryDownloadFromReplica(QTcpSocket* clientSocket, const QString& fileName, const QString& address, quint16 port) {
@@ -577,19 +748,83 @@ namespace SHIZ {
 		return true;
 	}
 
-	void FollowerServer::updateReplicaList(const QList<QListWidgetItem*>& replicas) {
-		replicaList.clear();
 
-		for (QListWidgetItem* item : replicas) {
-			if (item) {
-				replicaList.append(item->text()); // Добавляем текстовую информацию о репликах
-			}
+	void FollowerServer::handleClientData() {
+		QTcpSocket* clientSocket = qobject_cast<QTcpSocket*>(sender());
+		if (!clientSocket) return;
+
+		QDataStream in(clientSocket);
+		QString command;
+		in >> command;
+
+		if (command == COMMAND_DOWNLOAD) {
+			QString fileName;
+			in >> fileName;
+			processDownloadRequest(clientSocket, fileName);
 		}
-
-		logger->log("Replica list updated. Total replicas: " + QString::number(replicaList.size()));
-		//emit replicaListUpdated(replicaList); // Сигнал для обновления в UI или логах
+		else if (command == COMMAND_GET_FILES) {
+			QString userName;
+			in >> userName;
+			processFileListRequest(clientSocket, userName);
+		}
+		else if (command == COMMAND_GET_USERS){
+			processUserListRequest(clientSocket);
+		}
+		else if (command == COMMAND_LOGIN) {
+			QStringList parts;
+			QString login, password;
+			in >> login >> password;
+			parts << COMMAND_LOGIN << login << password;
+			processLoginRequest(clientSocket, parts);
+		}
+		else if (command == COMMAND_REGISTER) {
+			QStringList parts;
+			QString login, password;
+			in >> login >> password;
+			parts << COMMAND_REGISTER << login << password;
+			processRegistrationRequest(clientSocket, parts);
+		}
+		else if (command == COMMAND_UPLOAD) {
+			QString fileName, owner;
+			qint64 fileSize;
+			in >> fileName >> owner >> fileSize;
+			processUploadRequest(clientSocket, fileName, owner, fileSize);
+		}
+		else if (command == COMMAND_DELETE) {
+			QString fileName;
+			in >> fileName;
+			processDeleteFileRequest(clientSocket, fileName);
+		}
+		else if(command == COMMAND_DELETE_USER){
+			QString userName;
+			in >> userName;
+			processDeleteUserRequest(clientSocket, userName);
+		}
+		else if(command == COMMAND_UPDATE_USER){
+			QString userName, key, value;
+			in >> userName >> key >> value;
+			processUpdateUserRequest(clientSocket, userName, key, value);
+		}
+		else if(command == COMMAND_GET_FILE_INFO){
+			QString fileName;
+			in >> fileName;
+			processGetFileInfoRequest(clientSocket, fileName);
+		}
+		else if(command == COMMAND_GET_USER_INFO){
+			QString userName;
+			in >> userName;
+			processGetUserInfoRequest(clientSocket, userName);
+		}
 	}
 
+	void FollowerServer::handleClientDisconnected() {
+		QTcpSocket* clientSocket = qobject_cast<QTcpSocket*>(sender());
+		if (clientSocket) {
+			activeClients.removeAll(clientSocket);
+			clientSocket->deleteLater();
+			logger->log("Client disconnected");
+		}
+	}
 
 	void FollowerServer::handleMainData() {
 		QTcpSocket* mainSocket = qobject_cast<QTcpSocket*>(sender());
@@ -601,9 +836,9 @@ namespace SHIZ {
 
 		if (command == COMMAND_REPLICAS_UPDATE) {
 			// Обновление списка реплик
-			QList<QListWidgetItem*> replicas;
+			QString replicas;
 			in >> replicas;
-			updateReplicaList(replicas);
+			//updateReplicaList(replicas);
 		} else {
 			logger->log("Unknown command received from MainServer: " + command);
 		}
@@ -619,53 +854,6 @@ namespace SHIZ {
 		}
 	}
 
-
-	void FollowerServer::handleClientData() {
-		QTcpSocket* clientSocket = qobject_cast<QTcpSocket*>(sender());
-		if (!clientSocket) return;
-
-		QDataStream in(clientSocket);
-		QString command;
-		in >> command;
-
-		if (command == COMMAND_DOWNLOAD) {
-			QString fileName;
-			in >> fileName;
-			processDownloadRequest(clientSocket, fileName);
-		} else if (command == COMMAND_GET_FILES) {
-			processFileListRequest(clientSocket);
-		} else if (command == COMMAND_LOGIN) {
-			QStringList parts;
-			QString login, password;
-			in >> login >> password;
-			parts << COMMAND_LOGIN << login << password;
-			processLoginRequest(clientSocket, parts);
-		} else if (command == COMMAND_REGISTER) {
-			QStringList parts;
-			QString login, password;
-			in >> login >> password;
-			parts << COMMAND_REGISTER << login << password;
-			processRegistrationRequest(clientSocket, parts);
-		} else if (command == COMMAND_UPLOAD) {
-			QString fileName, owner;
-			qint64 fileSize;
-			in >> fileName >> owner >> fileSize;
-			processUploadRequest(clientSocket, fileName, owner, fileSize);
-		} else if (command == COMMAND_DELETE) {
-			QString fileName;
-			in >> fileName;
-			processDeleteFileRequest(clientSocket, fileName);
-		}
-	}
-
-	void FollowerServer::handleClientDisconnected() {
-		QTcpSocket* clientSocket = qobject_cast<QTcpSocket*>(sender());
-		if (clientSocket) {
-			activeClients.removeAll(clientSocket);
-			clientSocket->deleteLater();
-			logger->log("Client disconnected");
-		}
-	}
 
 	void FollowerServer::onReplicaConnected() {
 		logger->log("Replica connection established.");

@@ -27,7 +27,7 @@ namespace SHIZ{
 
 		followerPortInput = new QLineEdit(this);
 		followerPortInput->setPlaceholderText("Follower Port");
-		followerPortInput->setText("123456");
+		followerPortInput->setText("12345");
 		layout->addWidget(followerPortInput);
 
 		connectFollowerButton = new QPushButton("Connect to Follower", this);
@@ -102,21 +102,31 @@ namespace SHIZ{
 	}
 
 	void MainWindow::onDisconnectFollower() {
-		QTcpSocket* followerSocket = qobject_cast<QTcpSocket*>(sender());
-		if (!followerSocket) {
-			statusBar->showMessage("Invalid follower socket.");
-			logger->log("Failed to disconnect: invalid follower socket.");
+		if (!server || !server->isFollowerConnected()) {
+			statusBar->showMessage("Invalid follower socket or not connected.");
+			logger->log("Failed to disconnect: invalid follower connection.");
 			return;
 		}
 
-		QString followerIp = followerSocket->peerAddress().toString();
-		quint16 followerPort = followerSocket->peerPort();
+		QPair<QString, quint16> followerInfo = server->getFollowerIpPort();
+		QString followerIp = followerInfo.first;
+		quint16 followerPort = followerInfo.second;
+
+		if (followerIp.isEmpty() || followerPort == 0) {
+			statusBar->showMessage("Invalid follower IP or port.");
+			logger->log("Invalid follower IP or port entered.");
+			return;
+		}
 
 		if (!server->disconnectFromFollower(followerIp, followerPort)) {
 			statusBar->showMessage("Failed to disconnect from follower.");
 			logger->log("Failed to disconnect from follower: " + followerIp + ":" + QString::number(followerPort));
+		} else {
+			statusBar->showMessage("Successfully disconnected from follower.");
+			logger->log("Disconnected from follower: " + followerIp + ":" + QString::number(followerPort));
 		}
 	}
+
 
 	void MainWindow::onFollowerDisconnected(const QString& followerAddress) {
 		statusBar->showMessage("Follower disconnected: " + followerAddress );

@@ -15,7 +15,7 @@ namespace SHIZ {
 	{
 		dataBase = QSqlDatabase::addDatabase(DATABASE_TYPE);
 		dataBase.setDatabaseName(DATABASE_NAME);
-		followerSocket = nullptr;
+		//followerSocket = nullptr;
 
 		if (!dataBase.open()) {
 			logger->log("Failed to connect to database.");
@@ -54,7 +54,7 @@ namespace SHIZ {
         QString group("1");
         QString rights("rwd");
 
-        query.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ", " FIELD_USER_IS_ADMIN ", " FIELD_FILE_GROUP_ID ", " FIELD_USER_RIGHTS ") VALUES (?, ?, ?, ?, ?)");
+		query.prepare("INSERT INTO " TABLE_USERS " (" FIELD_USER_USERNAME ", " FIELD_USER_PASSWORD ", " FIELD_USER_IS_ADMIN ", " FIELD_FILE_GROUP_ID ", " FIELD_USER_RIGHTS ") VALUES (?, ?, ?, ?, ?)");
         query.addBindValue(username);
         query.addBindValue(hashedPassword);
         query.addBindValue(isAdmin);
@@ -95,7 +95,7 @@ namespace SHIZ {
 			out << QString(MAIN_SERVER);
 			followerSocket->flush();
 
-			MainServer::followerSocket = followerSocket; // Сохраняем соединение
+			MainServer::ptrFollowerSocket = followerSocket; // Сохраняем соединение
 			logger->log("Connected to FollowerServer at " + host + ":" + QString::number(port));
 
 			connect(followerSocket, &QTcpSocket::connected, this, &MainServer::onFollowerConnected);
@@ -108,21 +108,40 @@ namespace SHIZ {
 		}
 	}
 
+	bool MainServer::isFollowerConnected() const {
+		return MainServer::ptrFollowerSocket != nullptr &&
+			   MainServer::ptrFollowerSocket->state() == QAbstractSocket::ConnectedState;
+	}
+
+	QPair<QString, quint16> MainServer::getFollowerIpPort(){
+		if (MainServer::isFollowerConnected()) {
+			QString followerIp = MainServer::ptrFollowerSocket->peerAddress().toString();
+			quint16 followerPort = MainServer::ptrFollowerSocket->peerPort();
+			return qMakePair(followerIp, followerPort);
+		}
+		logger->log("No active follower connection");
+		return qMakePair(QString(), 0);
+	}
 
 	bool MainServer::disconnectFromFollower(const QString& host, quint16 port) {
-		if (MainServer::followerSocket->peerAddress().toString() == host && MainServer::followerSocket->peerPort() == port) {
-			disconnect(MainServer::followerSocket, nullptr, this, nullptr);
-			MainServer::followerSocket->disconnectFromHost();
-			if (MainServer::followerSocket->state() == QAbstractSocket::UnconnectedState || MainServer::followerSocket->waitForDisconnected(3000)) {
-				logger->log("Disconnected from follower at " + host + ":" + QString::number(port));
-				MainServer::followerSocket->deleteLater();
-				MainServer::followerSocket = nullptr;
-				return true;
+		if (MainServer::ptrFollowerSocket) {
+			if (MainServer::ptrFollowerSocket->peerAddress().toString() == host &&
+				MainServer::ptrFollowerSocket->peerPort() == port) {
+				disconnect(MainServer::ptrFollowerSocket, nullptr, this, nullptr);
+				MainServer::ptrFollowerSocket->disconnectFromHost();
+				if ( (MainServer::ptrFollowerSocket->state() == QAbstractSocket::UnconnectedState)
+					|| (MainServer::ptrFollowerSocket->waitForDisconnected(3000)) )
+				{
+					logger->log("Disconnected from follower at " + host + ":" + QString::number(port));
+					MainServer::ptrFollowerSocket->deleteLater();
+					return true;
+				}
 			}
 		}
-		logger->log("No active replica connection found at " + host + ":" + QString::number(port));
+		logger->log("No active follower connection found at " + host + ":" + QString::number(port));
 		return false;
 	}
+
 
 	bool MainServer::connectToReplica(const QString& host, quint16 port) {
 		QTcpSocket* replicaSocket = new QTcpSocket(this);

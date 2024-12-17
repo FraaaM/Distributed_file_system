@@ -1,9 +1,3 @@
-// клиент подключается к серверу, потом клиенту передаётся ip и port фоловера
-//и клиент к нему автоматически подключается.
-//Если связь с MainServer теряется то DFS подключается к фоловеру.
-//в нетворк менеджере нужно прописать что бы в этоим случае сокет поменялся
-
-
 #pragma once
 
 #include <QSqlDatabase>
@@ -13,56 +7,54 @@
 #include "logger.hpp"
 
 namespace SHIZ{
-	class FollowerServer : public QTcpServer {
+	class FollowerServer : public QTcpServer{
 		Q_OBJECT
 
-
 		private:
-			QSqlDatabase dataBase;
-			QList<QTcpSocket*> activeClients;
-			QVector<QTcpSocket*> replicaSockets;
-			Logger* logger;
-
-			QStringList replicaList;
-			QList<QTcpSocket*> receivedReplicas;
-			//QTcpSocket* mainServer;
-			QTcpSocket* mainServerSocket;
+		QSqlDatabase dataBase;
+		QList<QTcpSocket*> activeClients;
+		QVector<QTcpSocket*> replicaSockets;
+		Logger* logger;
+		QTcpSocket* mainServerSocket;
 
 		public:
-			FollowerServer(Logger* logger, QObject *parent = nullptr);
-			~FollowerServer();
+		FollowerServer(Logger* logger, QObject *parent = nullptr);
+		~FollowerServer();
 
-			void closeServer();
-			bool connectToHost(const QString& host, quint16 port);
-			void disconnectFromHost(const QString& host, quint16 port);
+		void closeServer();
+		bool connectToHost(const QString& host, quint16 port);
+		void disconnectFromHost(const QString& host, quint16 port);
 
 		protected:
-			void incomingConnection(qintptr socketDescriptor) override;
+		void incomingConnection(qintptr socketDescriptor) override;
 
 		private:
-
-				void switchToActiveMode(); //////////////////////////////////////////////////////////
-
-			bool distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate);
-			void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName);
-			void processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName);
-			void processFileListRequest(QTcpSocket* clientSocket);
-			void processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts);
-			void processRegistrationRequest(QTcpSocket* clientSocket, const QStringList& parts);
-			void processReplicaConnection(QTcpSocket* replicaSocket);
-			void processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize);
-			bool tryDownloadFromReplica(QTcpSocket* clientSocket, const QString& fileName, const QString& address, quint16 port);
+		void switchToActiveMode(); //////////////////////////////////////////////////////////
+		bool distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate);
+		void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName);
+		void processDeleteUserRequest(QTcpSocket* clientSocket, const QString& userName);
+		void processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName);
+		void processFileListRequest(QTcpSocket* clientSocket, const QString& userName);
+		void processGetFileInfoRequest(QTcpSocket* clientSocket, const QString& fileName);
+		void processGetUserInfoRequest(QTcpSocket* clientSocket, const QString& userName);
+		void processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts);
+		void processRegistrationRequest(QTcpSocket* clientSocket, const QStringList& parts);
+		void processReplicaConnection(QTcpSocket* replicaSocket);
+		void processUpdateUserRequest(QTcpSocket* clientSocket, const QString& userName, const QString& key, const QString& value);
+		void processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize);
+		void processUserListRequest(QTcpSocket* clientSocket);
+		bool tryDownloadFromReplica(QTcpSocket* clientSocket, const QString& fileName, const QString& address, quint16 port);
 
 		signals:
-			void replicaDisconnected(const QString& replicaAddress);
-			void statusMessage(const QString& message);
+		void replicaDisconnected(const QString& replicaAddress);
+		void statusMessage(const QString& message);
 
 		private slots:
-			void handleClientData();
-			void handleClientDisconnected();
-			void handleMainData();
-			void handleMainDisconnected();
-			void onReplicaConnected();
-			void onReplicaDisconnected();
+		void handleMainData();              /////////
+		void handleMainDisconnected();       /////////////
+		void handleClientData();
+		void handleClientDisconnected();
+		void onReplicaConnected();
+		void onReplicaDisconnected();
 	};
 }
