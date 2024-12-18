@@ -34,7 +34,6 @@ namespace SHIZ {
 		connect(networkManager, &NetworkManager::connectResult, this, &ConnectionWidget::onConnectResult);
 
 		resize(400,300);
-		setLayout(layout);
 	}
 
 

@@ -19,14 +19,13 @@ namespace SHIZ{
 
 		toggleButton = new QPushButton("Start replica", this);
 		layout->addWidget(toggleButton);
+		connect(toggleButton, &QPushButton::clicked, this, &MainWindow::onToggleServerState);
 
 		statusBar = new QStatusBar(this);
 		setStatusBar(statusBar);
 		statusBar->showMessage("Replica is not running.");
 
 		setCentralWidget(centralWidget);
-
-		connect(toggleButton, &QPushButton::clicked, this, &MainWindow::onToggleServerState);
 	}
 
 	MainWindow::~MainWindow() {

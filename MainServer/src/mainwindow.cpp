@@ -13,7 +13,7 @@ namespace SHIZ{
 		this->setWindowIcon(QIcon(":images/MainServer.png"));
 
 		portInput = new QLineEdit(this);
-		portInput->setPlaceholderText("Main Server Port");
+		portInput->setPlaceholderText("Server Port");
 		portInput->setText("1234");
 		layout->addWidget(portInput);
 
@@ -71,7 +71,7 @@ namespace SHIZ{
 			return;
 		}
 
-		if (server->connectToHost(replicaIp, replicaPort)) {
+		if (server->connectToReplica(replicaIp, replicaPort)) {
 			replicaList->addItem(replicaIp + ":" + QString::number(replicaPort));
 			statusBar->showMessage("Replica connected: " + replicaIp + ":" + QString::number(replicaPort));
 		} else {
@@ -106,7 +106,7 @@ namespace SHIZ{
 			return;
 		}
 
-		server->disconnectFromHost(host, port);
+		server->disconnectFromReplica(host, port);
 		delete selectedItem;
 		statusBar->showMessage("Replica disconnected: " + host + ":" + QString::number(port));
 	}
