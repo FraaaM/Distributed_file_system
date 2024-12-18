@@ -46,13 +46,18 @@ This project implements a simple Distributed File System (DFS) with a server-cli
 ## Build and Use:
 
 ### Building:
-1. Navigate to the desired subproject directory (e.g., `MainServer`, `ReplicaServer`, or `Client`).
+1. Navigate to the desired subproject directory (e.g., `MainServer`, `ReplicaServer`, or `DFS`).
 2. Run `build.bat` to compile the project.
 
 ### Running:
 1. Locate the `build_ninja` folder in each subproject.
-2. Run the respective executable files (`MainServer.exe`, `ReplicaServer.exe`, `Client.exe`).
+2. Run the respective executable files (`MainServer.exe`, `ReplicaServer.exe`, `DFS.exe`).
 
 ### Usage:
 - Start the main server and replicas first to ensure proper system initialization.
 - Launch the client application to interact with the DFS.
+- After starting the servers, log in to the `DFS` client application and create a new user.
+- Then log in with the credentials `admin` (username) and `!For@each` (password).
+- Assign the newly created user as an administrator to give them access to management functions.
+- For security purposes, delete the old administrator account after the new admin account is set up.
+- Once the new administrator is in place, you can grant permissions and provide access to other participants.
