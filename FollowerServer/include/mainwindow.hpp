@@ -1,17 +1,17 @@
 #pragma once
 
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMainWindow>
 #include <QPushButton>
 #include <QStatusBar>
 #include <QTimer>
-#include <QListWidget>
 #include <QVBoxLayout>
 
 #include "logger.hpp"
 #include "mainserver.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	class MainWindow : public QMainWindow {
 		Q_OBJECT
 

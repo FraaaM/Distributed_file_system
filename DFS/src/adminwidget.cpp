@@ -1,10 +1,10 @@
 #include <QFileDialog>
+#include <QHeaderView>
 #include <QMessageBox>
 #include <QVBoxLayout>
-#include <QHeaderView>
 
 #include "adminwidget.hpp"
-#include "clientmacros.hpp"
+#include "macros.hpp"
 
 namespace SHIZ {
 	AdminWidget::AdminWidget(Logger* logger, NetworkManager* manager, QWidget* parent)

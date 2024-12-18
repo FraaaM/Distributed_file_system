@@ -1,9 +1,9 @@
 #include <QFileDialog>
+#include <QHeaderView>
 #include <QMessageBox>
 #include <QVBoxLayout>
-#include <QHeaderView>
 
-#include "clientmacros.hpp"
+#include "macros.hpp"
 #include "mainwidget.hpp"
 
 namespace SHIZ {

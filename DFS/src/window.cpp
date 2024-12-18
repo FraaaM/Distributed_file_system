@@ -1,5 +1,5 @@
-#include <QVBoxLayout>
 #include <QMessageBox>
+#include <QVBoxLayout>
 
 #include "window.hpp"
 

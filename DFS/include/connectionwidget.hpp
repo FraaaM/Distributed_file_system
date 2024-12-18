@@ -1,7 +1,7 @@
 #pragma once
 
-#include <QPushButton>
 #include <QLineEdit>
+#include <QPushButton>
 
 #include "networkmanager.hpp"
 

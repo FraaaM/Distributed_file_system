@@ -5,7 +5,7 @@
 
 #include "logger.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	class ReplicaServer : public QTcpServer {
 		Q_OBJECT
 

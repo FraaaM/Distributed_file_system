@@ -1,6 +1,6 @@
 #include "mainwindow.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	MainWindow::MainWindow(Logger* logger, QWidget *parent)
 		: QMainWindow(parent),
 		server(new MainServer(logger, this)),

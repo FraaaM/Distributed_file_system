@@ -1,9 +1,9 @@
 #pragma once
 
-#include <QTableWidget>
-#include <QPushButton>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPushButton>
+#include <QTableWidget>
 
 #include "networkmanager.hpp"
 

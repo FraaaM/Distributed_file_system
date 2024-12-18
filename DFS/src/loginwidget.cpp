@@ -2,8 +2,8 @@
 #include <QMessageBox>
 #include <QVBoxLayout>
 
-#include "clientmacros.hpp"
 #include "loginwidget.hpp"
+#include "macros.hpp"
 
 namespace SHIZ {
 	LoginWidget::LoginWidget(Logger* logger, NetworkManager* manager, QWidget* parent)

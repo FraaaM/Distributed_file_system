@@ -6,8 +6,8 @@
 #include <QSqlError>
 #include <QSqlQuery>
 
+#include "macros.hpp"
 #include "mainserver.hpp"
-#include "servermacros.hpp"
 
 namespace SHIZ {
 	MainServer::MainServer(Logger* logger, QObject* parent)
@@ -99,7 +99,7 @@ namespace SHIZ {
 		QTcpSocket* replicaSocket = new QTcpSocket(this);
 		replicaSocket->connectToHost(host, port);
 
-		if (replicaSocket->waitForConnected(3000)) {
+		if (replicaSocket->waitForConnected(RESPONSE_TIMEOUT)) {
 			QDataStream out(replicaSocket);
 			out << QString(MAIN_SERVER);
 			replicaSocket->flush();
@@ -122,7 +122,7 @@ namespace SHIZ {
 			if (socket->peerAddress().toString() == host && socket->peerPort() == port) {
 				disconnect(socket, nullptr, this, nullptr);
 				socket->disconnectFromHost();
-				if (socket->state() == QAbstractSocket::UnconnectedState || socket->waitForDisconnected(3000)) {
+				if (socket->state() == QAbstractSocket::UnconnectedState || socket->waitForDisconnected(RESPONSE_TIMEOUT)) {
 					replicaSockets.removeOne(socket);
 					logger->log("Disconnected from replica at " + host + ":" + QString::number(port));
 					socket->deleteLater();
@@ -138,7 +138,7 @@ namespace SHIZ {
 		QTcpSocket* newSocket = new QTcpSocket(this);
 		newSocket->setSocketDescriptor(socketDescriptor);
 
-		if (newSocket->waitForReadyRead(3000)) {
+		if (newSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			QDataStream in(newSocket);
 			QString initialMessage;
 			in >> initialMessage;
@@ -188,7 +188,7 @@ namespace SHIZ {
 				out << QString(COMMAND_REPLICA_DELETE) << fileName;
 				replicaSocket->flush();
 
-				if (!replicaSocket->waitForReadyRead(3000)) {
+				if (!replicaSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 					logger->log("No response from replica for delete.");
 				} else {
 					QDataStream in(replicaSocket);
@@ -215,7 +215,7 @@ namespace SHIZ {
 			out << QString(COMMAND_REPLICA_UPLOAD) << fileName << fileData.size();
 			replicaSocket->flush();
 
-			if (!replicaSocket->waitForReadyRead(3000)) {
+			if (!replicaSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 				logger->log("No response from replica for upload.");
 				continue;
 			}
@@ -239,7 +239,7 @@ namespace SHIZ {
 				replicaSocket->flush();
 				bytesSent += chunk.size();
 
-				if (!replicaSocket->waitForReadyRead(3000)) {
+				if (!replicaSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 					uploadSuccessful = false;
 					logger->log("No response from replica during upload.");
 					break;
@@ -459,7 +459,7 @@ namespace SHIZ {
 		followerSocket->flush();
 		logger->log("Replica list data sent to follower.");
 
-		if (!followerSocket->waitForReadyRead(3000)) {
+		if (!followerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			logger->log("No response from follower for replica list.");
 			return;
 		}
@@ -488,7 +488,7 @@ namespace SHIZ {
 		out << QString(COMMAND_FILE_TRANSFER) << fileSize;
 		followerSocket->flush();
 
-		if (!followerSocket->waitForReadyRead(3000)) {
+		if (!followerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			logger->log("No response from follower for file transfer.");
 			return;
 		}
@@ -500,7 +500,7 @@ namespace SHIZ {
 			return;
 		}
 
-		const qint64 chunkSize = 1024;
+		const qint64 chunkSize = CHUNK_SIZE;
 		qint64 totalSent = 0;
 
 		while (!dbFile.atEnd()) {
@@ -509,7 +509,7 @@ namespace SHIZ {
 			followerSocket->flush();
 			totalSent += buffer.size();
 
-			if (!followerSocket->waitForReadyRead(3000)) {
+			if (!followerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 				logger->log("No response from follower after sending chunk.");
 				return;
 			}
@@ -662,7 +662,7 @@ namespace SHIZ {
 		clientSocket->flush();
 
 		while (totalReceived < fileSize) {
-			if (clientSocket->waitForReadyRead(3000)) {
+			if (clientSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 				QDataStream in(clientSocket);
 				QByteArray chunk;
 				in >> chunk;
@@ -760,7 +760,7 @@ namespace SHIZ {
 		out << QString(COMMAND_REPLICA_DOWNLOAD) << fileName;
 		replicaSocket->flush();
 
-		if (!replicaSocket->waitForReadyRead(3000)) {
+		if (!replicaSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			logger->log("No response from replica at " + address + ":" + QString::number(port));
 			return false;
 		}
@@ -785,7 +785,7 @@ namespace SHIZ {
 		clientOut << QString(RESPONSE_DOWNLOAD_READY) << fileSize;
 		clientSocket->flush();
 
-		if (!clientSocket->waitForReadyRead(3000)) {
+		if (!clientSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			logger->log("Client not ready to receive file.");
 			return false;
 		}
@@ -803,7 +803,7 @@ namespace SHIZ {
 		const qint64 chunkSize = CHUNK_SIZE;
 
 		while (bytesReceived < fileSize) {
-			if (!replicaSocket->waitForReadyRead(3000)) {
+			if (!replicaSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 				logger->log("Timeout while receiving file data from replica.");
 				return false;
 			}
@@ -819,7 +819,7 @@ namespace SHIZ {
 			replicaOut << QString(RESPONSE_CHUNK_RECEIVED);
 			replicaSocket->flush();
 
-			if (!clientSocket->waitForReadyRead(3000)) {
+			if (!clientSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 				logger->log("Client did not acknowledge chunk.");
 				return false;
 			}

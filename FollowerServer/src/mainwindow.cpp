@@ -1,9 +1,9 @@
 #include <QApplication>
 
+#include "macros.hpp"
 #include "mainwindow.hpp"
-#include "servermacros.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	MainWindow::MainWindow(Logger* logger, QWidget *parent)
 		: QMainWindow(parent),
 		server(new MainServer(logger, this)),
@@ -14,7 +14,7 @@ namespace SHIZ{
 		QWidget* centralWidget = new QWidget(this);
 		QVBoxLayout* layout = new QVBoxLayout(centralWidget);
 
-		this->setWindowIcon(QIcon(":images/MainServer.png"));
+		this->setWindowIcon(QIcon(":images/FollowerServer.png"));
 
 		mainServerSocket = new QTcpSocket(this);
 
@@ -33,7 +33,7 @@ namespace SHIZ{
 		connect(connectToMainButton, &QPushButton::clicked, this, &MainWindow::onConnectMainServer);
 
 		heartbeatTimer = new QTimer(this);
-		heartbeatTimer->setInterval(10000);
+		heartbeatTimer->setInterval(HEARTBEAT_INTERVAL);
 		connect(heartbeatTimer, &QTimer::timeout, this, &MainWindow::onSendHeartbeat);
 
 
@@ -172,7 +172,7 @@ namespace SHIZ{
 
 		mainServerSocket->connectToHost(mainServerIp, mainServerPort);
 
-		if (mainServerSocket->waitForConnected(3000)) {
+		if (mainServerSocket->waitForConnected(RESPONSE_TIMEOUT)) {
 			statusBar->showMessage("Connected to Main Server at " + mainServerIp + ":" + QString::number(mainServerPort));
 			logger->log("Connected to Main Server at " + mainServerIp + ":" + QString::number(mainServerPort));
 
@@ -215,7 +215,7 @@ namespace SHIZ{
 		mainServerSocket->disconnectFromHost();
 
 		if (mainServerSocket->state() != QTcpSocket::UnconnectedState) {
-			mainServerSocket->waitForDisconnected(3000);
+			mainServerSocket->waitForDisconnected(RESPONSE_TIMEOUT);
 		}
 
 		statusBar->showMessage("Disconnected from Main Server.");
@@ -274,7 +274,7 @@ namespace SHIZ{
 		out << QString(COMMAND_FOLLOWER_SYNC);
 		mainServerSocket->flush();
 
-		if (!mainServerSocket->waitForReadyRead(3000)) {
+		if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			logger->log("No response from Main Server for heartbeat.");
 			statusBar->showMessage("Heartbeat failed: No response.");
 			transitionToIndependentMode();
@@ -294,7 +294,7 @@ namespace SHIZ{
 		out << QString(RESPONSE_REPLICA_LIST_RECEIVED);
 		mainServerSocket->flush();
 
-		if (!mainServerSocket->waitForReadyRead(3000)) {
+		if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			logger->log("No response from Main Server after receiving replicas.");
 			statusBar->showMessage("Heartbeat failed: No response after receiving replicas.");
 			return;
@@ -321,11 +321,11 @@ namespace SHIZ{
 			return;
 		}
 
-		const qint64 chunkSize = 1024;
+		const qint64 chunkSize = CHUNK_SIZE;
 		qint64 totalReceived = 0;
 
 		while (totalReceived < fileSize) {
-			if (!mainServerSocket->waitForReadyRead(3000)) {
+			if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 				logger->log("No data received from Main Server during file transfer.");
 				dbFile.close();
 				return;

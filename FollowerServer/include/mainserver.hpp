@@ -6,7 +6,7 @@
 
 #include "logger.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	class MainServer : public QTcpServer{
 			Q_OBJECT
 

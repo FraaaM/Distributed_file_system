@@ -2,7 +2,7 @@
 #include <QFileInfo>
 #include <QMessageBox>
 
-#include "clientmacros.hpp"
+#include "macros.hpp"
 #include "networkmanager.hpp"
 
 namespace SHIZ {
@@ -32,7 +32,7 @@ namespace SHIZ {
 		this->host = host;
 		this->port = port;
 		tcpSocket->connectToHost(host, port);
-		if (tcpSocket->waitForConnected(3000)) {
+		if (tcpSocket->waitForConnected(RESPONSE_TIMEOUT)) {
 			logger->log("Connected to main server successfully");
 			QDataStream out(tcpSocket);
 			out << QString(CLIENT);
@@ -53,7 +53,7 @@ namespace SHIZ {
 		out << QString(COMMAND_DELETE) << fileName;
 		tcpSocket->flush();
 
-		if (tcpSocket->waitForReadyRead(3000)) {
+		if (tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			QDataStream in(tcpSocket);
 			QString response;
 			in >> response;
@@ -78,7 +78,7 @@ namespace SHIZ {
 		out << QString(COMMAND_DELETE_USER) << userName;
 		tcpSocket->flush();
 
-		if (tcpSocket->waitForReadyRead(3000)) {
+		if (tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			QDataStream in(tcpSocket);
 			QString response;
 			in >> response;
@@ -112,7 +112,7 @@ namespace SHIZ {
 		out << QString(COMMAND_DOWNLOAD) << fileName;
 		tcpSocket->flush();
 
-		if (!tcpSocket->waitForReadyRead(30000)) {
+		if (!tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT * 10)) {
 			emit statusMessage("Server did not respond in time for download.");
 			logger->log("Server did not respond in time for download.");
 			emit downloadFileResult(false);
@@ -149,11 +149,11 @@ namespace SHIZ {
 		}
 
 		qint64 totalReceived = 0;
-		const qint64 chunkSize = 1024;
+		const qint64 chunkSize = CHUNK_SIZE;
 		QByteArray chunk;
 
 		while (totalReceived < fileSize) {
-			if (!tcpSocket->waitForReadyRead(30000)) {
+			if (!tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT * 10)) {
 				emit statusMessage("No response from server during download.");
 				logger->log("No response from server during download.");
 				file.close();
@@ -187,7 +187,7 @@ namespace SHIZ {
 		out << QString(COMMAND_GET_FILES) << userName;
 		tcpSocket->flush();
 
-		if (tcpSocket->waitForReadyRead(3000)) {
+		if (tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			QDataStream in(tcpSocket);
 			QString response;
 			QStringList fileList;
@@ -238,7 +238,7 @@ namespace SHIZ {
 		out << QString(COMMAND_REGISTER) << login << password;
 		tcpSocket->flush();
 
-		if (tcpSocket->waitForReadyRead(3000)) {
+		if (tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			QDataStream in(tcpSocket);
 			QString response;
 			in >> response;
@@ -263,7 +263,7 @@ namespace SHIZ {
 		out << QString(COMMAND_UPDATE_USER) << userName << key << value;
 		tcpSocket->flush();
 
-		if (tcpSocket->waitForReadyRead(3000)) {
+		if (tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			QDataStream in(tcpSocket);
 			QString response;
 			in >> response;
@@ -298,7 +298,7 @@ namespace SHIZ {
 		out << QString(COMMAND_UPLOAD) << fileName << owner << fileSize;
 		tcpSocket->flush();
 
-		if (!tcpSocket->waitForReadyRead(30000)) {
+		if (!tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT * 10)) {
 			emit statusMessage("Server did not respond in time for upload.");
 			logger->log("Server did not respond in time for upload.");
 			emit uploadFileResult(false);
@@ -316,7 +316,7 @@ namespace SHIZ {
 			return;
 		}
 
-		const qint64 chunkSize = 1024;
+		const qint64 chunkSize = CHUNK_SIZE;
 		qint64 totalSent = 0;
 
 		while (!file.atEnd()) {
@@ -332,7 +332,7 @@ namespace SHIZ {
 						QString::number(totalSent) + " of " +
 						QString::number(fileSize) + " bytes sent");
 
-			if (!tcpSocket->waitForReadyRead(30000)) {
+			if (!tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT * 10)) {
 				emit statusMessage("No response from server during upload.");
 				logger->log("No response from server after sending chunk.");
 				emit uploadFileResult(false);
@@ -351,7 +351,7 @@ namespace SHIZ {
 		out << QByteArray();
 		tcpSocket->flush();
 
-		if (tcpSocket->waitForReadyRead(30000)) {
+		if (tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT * 10)) {
 			in >> response;
 			bool success = (response == RESPONSE_UPLOAD_SUCCESS);
 			emit statusMessage(success ? "File uploaded successfully." : "File upload failed.");
@@ -370,7 +370,7 @@ namespace SHIZ {
 		out << QString(COMMAND_GET_USER_INFO) << userName;
 		tcpSocket->flush();
 
-		if (tcpSocket->waitForReadyRead(3000)) {
+		if (tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			QDataStream in(tcpSocket);
 			QString response;
 			QString userInfo;
@@ -391,7 +391,7 @@ namespace SHIZ {
 		out << QString(COMMAND_GET_USERS);
 		tcpSocket->flush();
 
-		if (tcpSocket->waitForReadyRead(30000)) {
+		if (tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT * 10)) {
 			QDataStream in(tcpSocket);
 			QString response;
 			QStringList userList;

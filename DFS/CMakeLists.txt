@@ -12,27 +12,31 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network Sql Concurrent)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Sql Concurrent)
 
-include_directories(include)
+include_directories(
+    include
+    ../utils/include
+)
 
 set(RESOURCE_FILES
-    assets/assets.qrc
+    ../assets/assets.qrc
 )
 
 set(PROJECT_SOURCES
         main.cpp
         include/adminwidget.hpp src/adminwidget.cpp
-        include/clientmacros.hpp
         include/connectionwidget.hpp src/connectionwidget.cpp
-        include/logger.hpp src/logger.cpp
         include/loginwidget.hpp src/loginwidget.cpp
         include/mainwidget.hpp src/mainwidget.cpp
         include/networkmanager.hpp src/networkmanager.cpp
         include/registrationwidget.hpp src/registrationwidget.cpp
         include/window.hpp src/window.cpp
+
+        ../utils/include/macros.hpp
+        ../utils/include/logger.hpp ../utils/src/logger.cpp
 )
 
 if(WIN32)
-    set(WINDOWS_RESOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/assets/app.rc")
+    set(WINDOWS_RESOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../assets/DFS.rc")
     list(APPEND PROJECT_SOURCES ${WINDOWS_RESOURCE_FILE})
 endif()
 
