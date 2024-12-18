@@ -5,7 +5,7 @@ This project implements a simple Distributed File System (DFS) with a server-cli
 
 ## Features
 
-### Server functionality:
+### Main Server functionality:
 - **User authentication**: Login and registration for clients.
 - **File operations**:
   - Upload files to the system.
@@ -16,6 +16,13 @@ This project implements a simple Distributed File System (DFS) with a server-cli
   - Distribute files to replicas for redundancy.
   - Handle requests to fetch files from replicas when needed.
 
+### FollowerServer Functionality:
+- Connects to the `MainServer` and sends heartbeat notifications to confirm availability.
+- Regularly synchronizes its data with the `MainServer`.
+- If the `MainServer` becomes unresponsive:
+  - Attempts to connect to known replicas.
+  - Assumes the role of a server, providing availability and updating other replicas as needed.
+
 ### Replica functionality:
 - Synchronize files with the main server.
 - Serve as backup storage for file retrieval when the other ones is unavailable.
@@ -25,7 +32,6 @@ This project implements a simple Distributed File System (DFS) with a server-cli
 - Easy-to-use commands for interacting with the DFS:
   - File upload, download, and deletion.
   - Fetch a list of files.
-- Communication with the main server and replicas.
 
 ### Administration and Access Control:
 - For each user, an administrator can assign read (r), write (w), and delete (d) permissions. These permissions determine which actions can be performed on visible files.
@@ -46,12 +52,18 @@ This project implements a simple Distributed File System (DFS) with a server-cli
 ## Build and Use:
 
 ### Building:
-1. Navigate to the desired subproject directory (e.g., `MainServer`, `ReplicaServer`, or `DFS`).
-2. Run `build.bat` to compile the project.
+1. **Individual Builds**:  
+   Navigate to the desired subproject directory (e.g., `MainServer`, `FollowerServer`, `ReplicaServer`, or `DFS`) and run `build.bat` to compile the project for that specific part.
+
+2. **Build All at Once**:  
+   Alternatively, you can build the entire system at once by using the `build.bat` script located in the root of the repository. Running this script will:
+   - Compile each part of the system (MainServer, FollowerServer, ReplicaServer, and DFS) individually.
+   - All binaries will be placed in the `build_ninja` directory, with separate folders for each subproject, containing the corresponding executable files (`MainServer.exe`, `FollowerServer.exe`, `ReplicaServer.exe`, and `DFS.exe`).
 
 ### Running:
-1. Locate the `build_ninja` folder in each subproject.
-2. Run the respective executable files (`MainServer.exe`, `ReplicaServer.exe`, `DFS.exe`).
+1. After building, locate the `build_ninja` folder in the root directory.
+2. Inside the `build_ninja` folder, you will find individual folders for each subproject.
+3. Run the respective executable files (`MainServer.exe`, `FollowerServer.exe`, `ReplicaServer.exe`, or `DFS.exe`) from their corresponding subfolder.
 
 ### Usage:
 - Start the main server and replicas first to ensure proper system initialization.
