@@ -281,8 +281,15 @@ namespace SHIZ {
 		return atLeastOneSuccess;
 	}
 
-	void MainServer::processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName) {
+    void MainServer::processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& userName) {
 		QDataStream out(clientSocket);
+		QString rights = processGetUserInfoRequest(userName).split("|")[0];
+
+		if(!rights.contains(RIGHT_TO_DELETE)){
+			out << QString(RESPONSE_DELETE_NOT_ALLOW);
+			clientSocket->flush();
+			return;
+		}
 
 		QSqlQuery query;
 		query.prepare("DELETE FROM " TABLE_FILES " WHERE " FIELD_FILE_FILENAME " = :filename");
@@ -349,13 +356,19 @@ namespace SHIZ {
         clientSocket->flush();
     }
 
-	void MainServer::processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName) {
+    void MainServer::processDownloadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& userName) {
+		QDataStream out(clientSocket);
+		QString rights = processGetUserInfoRequest(userName).split("|")[0];
+
+		if(!rights.contains(RIGHT_TO_READ)){
+			out << QString(RESPONSE_READ_NOT_ALLOW);
+			clientSocket->flush();
+			return;
+		}
 		QSqlQuery query;
 		query.prepare("SELECT " FIELD_REPLICA_ADDRESS ", " FIELD_REPLICA_PORT " FROM " TABLE_FILE_REPLICAS
 					  " WHERE " FIELD_FILE_FILENAME " = :filename");
 		query.bindValue(":filename", fileName);
-
-		QDataStream out(clientSocket);
 
 		if (!query.exec()) {
 			out << QString(RESPONSE_DOWNLOAD_FAILED);
@@ -425,11 +438,11 @@ namespace SHIZ {
 		query.prepare(queryBase);
 
 		if (!query.exec()) {
-            logger->log("Failed to execute query: " + query.lastError().text());
-            return;
-        }
+			logger->log("Failed to execute query: " + query.lastError().text());
+			return;
+		}
 
-        QStringList fileList;
+		QStringList fileList;
 		while (query.next()) {
 			QString fileDetails = query.value(0).toString() + "|" + query.value(1).toString() + "|" +
                                query.value(2).toString() + "|" + query.value(3).toString() + "|" +
@@ -545,24 +558,22 @@ namespace SHIZ {
 		}
 	}
 
-	void MainServer::processGetUserInfoRequest(QTcpSocket *clientSocket, const QString &userName){
-		QDataStream out(clientSocket);
-
+    QString MainServer::processGetUserInfoRequest(const QString &userName){
 		QSqlQuery getUserInfoQuery;
 		getUserInfoQuery.prepare("SELECT " FIELD_USER_RIGHTS ", " FIELD_USER_GROUP_ID " FROM " TABLE_USERS " WHERE " FIELD_USER_USERNAME " = :username");
 		getUserInfoQuery.bindValue(":username", userName);
 
 		if (!getUserInfoQuery.exec()) {
 			logger->log("Error getting rights of user:" + getUserInfoQuery.lastError().text());
-			return;
+            return QString();
 		}
 
 		if (getUserInfoQuery.next()) {
 			QString userInfo = getUserInfoQuery.value(0).toString() + "|"
 							   + getUserInfoQuery.value(1).toString();
-			out  << QString(RESPONSE_USER_INFO) << userInfo;
-			clientSocket->flush();
+            return userInfo;
 		}
+        return QString();
 	}
 
 	void MainServer::processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts) {
@@ -641,6 +652,14 @@ namespace SHIZ {
     }
 
 	void MainServer::processUploadRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& owner, qint64 fileSize) {
+		QDataStream out(clientSocket);
+		QString rights = processGetUserInfoRequest(owner).split("|")[0];
+
+		if(!rights.contains(RIGHT_TO_WRITE)){
+			out << QString(RESPONSE_WRITE_NOT_ALLOW);
+			clientSocket->flush();
+			return;
+		}
 		QString uploadDate = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
 
 		QSqlQuery deleteQuery;
@@ -657,7 +676,6 @@ namespace SHIZ {
 		QByteArray fileData;
 		qint64 totalReceived = 0;
 
-		QDataStream out(clientSocket);
 		out << QString(RESPONSE_READY_FOR_DATA);
 		clientSocket->flush();
 
@@ -702,12 +720,12 @@ namespace SHIZ {
         }
 
 		QString groupIds;
-        while(userGroupQuery.next()){
+		while(userGroupQuery.next()){
 			groupIds = userGroupQuery.value(0).toString();
-        }
+		}
 
 		QSqlQuery query;
-        query.prepare("INSERT INTO " TABLE_FILES " (" FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ", " FIELD_FILE_GROUP_ID ") VALUES (?, ?, ?, ?, ?)");
+		query.prepare("INSERT INTO " TABLE_FILES " (" FIELD_FILE_FILENAME ", " FIELD_FILE_OWNER ", " FIELD_FILE_SIZE ", " FIELD_FILE_UPLOAD_DATE ", " FIELD_FILE_GROUP_ID ") VALUES (?, ?, ?, ?, ?)");
 		query.addBindValue(fileName);
 		query.addBindValue(owner);
 		query.addBindValue(fileSize);
@@ -753,7 +771,7 @@ namespace SHIZ {
 
 		if (!replicaSocket) {
 			logger->log("There is no connected replica with  file: " + fileName);
-            return false;
+			return false;
 		}
 
 		QDataStream out(replicaSocket);
@@ -845,9 +863,9 @@ namespace SHIZ {
 		in >> command;
 
 		if (command == COMMAND_DOWNLOAD) {
-			QString fileName;
-			in >> fileName;
-			processDownloadRequest(clientSocket, fileName);
+            QString fileName, userName;
+            in >> fileName >> userName;
+            processDownloadRequest(clientSocket, fileName, userName);
 		}
 		else if (command == COMMAND_GET_FILES) {
             QString userName;
@@ -878,9 +896,9 @@ namespace SHIZ {
 			processUploadRequest(clientSocket, fileName, owner, fileSize);
 		}
 		else if (command == COMMAND_DELETE) {
-			QString fileName;
-			in >> fileName;
-			processDeleteFileRequest(clientSocket, fileName);
+            QString fileName, userName;
+            in >> fileName >> userName;
+            processDeleteFileRequest(clientSocket, fileName, userName);
 		}
 		else if(command == COMMAND_DELETE_USER){
             QString userName;
@@ -896,11 +914,6 @@ namespace SHIZ {
             QString fileName;
             in >> fileName;
             processGetFileInfoRequest(clientSocket, fileName);
-		}
-		else if(command == COMMAND_GET_USER_INFO){
-            QString userName;
-            in >> userName;
-            processGetUserInfoRequest(clientSocket, userName);
 		}
 		else {
 			logger->log("Unknown command from client: " + command);
