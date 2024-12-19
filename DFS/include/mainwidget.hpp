@@ -15,9 +15,6 @@ namespace SHIZ {
 			NetworkManager* networkManager;
 			QString currentLogin;
 
-			bool writeAccess = true;
-			bool readAccess = true;
-			bool deleteAccess = true;
 			bool buttonLock = false;
 
 			QLabel* statusLabel;
