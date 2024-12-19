@@ -22,8 +22,8 @@ namespace SHIZ {
 		connect(filterLineEdit, &QLineEdit::textChanged, this, &MainWidget::onFilterTextChanged);
 
 		fileTableWidget = new QTableWidget(this);
-        fileTableWidget->setColumnCount(5);
-        fileTableWidget->setHorizontalHeaderLabels({"File Name", "Owner", "Size (bytes)", "Upload Date", "Group"});
+		fileTableWidget->setColumnCount(5);
+		fileTableWidget->setHorizontalHeaderLabels({"File Name", "Owner", "Size (bytes)", "Upload Date", "Group"});
 		fileTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 		fileTableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
 		fileTableWidget->setSortingEnabled(true);
@@ -53,7 +53,6 @@ namespace SHIZ {
 		connect(networkManager, &NetworkManager::downloadFileResult, this, &MainWidget::onDownloadFileResult);
 		connect(networkManager, &NetworkManager::listFileResult, this, &MainWidget::onListFileResult);
 		connect(networkManager, &NetworkManager::uploadFileResult, this, &MainWidget::onUploadFileResult);
-		connect(networkManager, &NetworkManager::userInfoResult, this, &MainWidget::onUserInfoResult);
 	}
 
 
@@ -69,27 +68,25 @@ namespace SHIZ {
 		currentLogin = login;
 	}
 
-
-	void MainWidget::setRights() {
-		emit userInfoRequest(currentLogin);
-	}
-
-
-	void MainWidget::onDeleteFileResult(bool success) {
+	void MainWidget::onDeleteFileResult(const QString& result) {
 		setButtonLock(false);
-		if (success) {
+		if (result == RESPONSE_DELETE_SUCCESS) {
 			QMessageBox::information(this, "Delete", "File deleted successfully.");
 			onRefreshButtonClicked();
-		} else {
+		}else if(result == RESPONSE_DELETE_NOT_ALLOW){
+			QMessageBox::warning(this, "Delete", "You don't have right delete this file.");
+		}else {
 			QMessageBox::warning(this, "Delete", "File deletion failed.");
 		}
 	}
 
-	void MainWidget::onDownloadFileResult(bool success) {
+	void MainWidget::onDownloadFileResult(const QString& result) {
 		setButtonLock(false);
-		if (success) {
+		if (result == RESPONSE_DOWNLOAD_READY) {
 			QMessageBox::information(this, "Downloading", "The file downloaded successfully.");
-		} else {
+		}else if(result == RESPONSE_READ_NOT_ALLOW){
+			QMessageBox::warning(this, "Download", "You don't have right download this file.");
+		}else {
 			QMessageBox::warning(this, "Download", "The file could not be downloaded.");
 		}
 	}
@@ -117,44 +114,31 @@ namespace SHIZ {
 		}
 	}
 
-	void MainWidget::onUploadFileResult(bool success) {
+	void MainWidget::onUploadFileResult(const QString& result) {
 		setButtonLock(false);
-		if (success) {
+		if (result == RESPONSE_UPLOAD_SUCCESS) {
 			QMessageBox::information(this, "Upload", "File uploaded successfully.");
 			onRefreshButtonClicked();
-		} else {
+		}else if(result == RESPONSE_WRITE_NOT_ALLOW){
+			QMessageBox::warning(this, "Upload", "You don't have right upload files.");
+		}else {
 			QMessageBox::warning(this, "Upload", "File upload failed.");
 		}
 	}
 
-	void MainWidget::onUserInfoResult(const QString &userInfo){
-		QString rights = userInfo.split("|")[0];
-
-		readAccess = rights.contains(RIGHT_TO_READ);
-		writeAccess = rights.contains(RIGHT_TO_WRITE);
-		deleteAccess = rights.contains(RIGHT_TO_DELETE);
-	}
-
 	void MainWidget::onRefreshButtonClicked(){
-		setRights();
 		emit listFileRequest(currentLogin);
 	}
 
 
 	void MainWidget::onDeleteButtonClicked() {
 		onRefreshButtonClicked();
-		setRights();
 
 		int selectedRow = fileTableWidget->currentRow();
 		if (selectedRow >= 0) {
 			QString fileName = fileTableWidget->item(selectedRow, 0)->text();
-
-			if(deleteAccess){
-				setButtonLock(true);
-				emit deleteFileRequest(fileName);
-			} else {
-				QMessageBox::warning(this, "Delete", "You don't have right delete this file.");
-			}
+			setButtonLock(true);
+			emit deleteFileRequest(fileName, currentLogin);
 		} else {
 			QMessageBox::warning(this, "Delete", "No file selected.");
 		}
@@ -163,22 +147,16 @@ namespace SHIZ {
 
 	void MainWidget::onDownloadButtonClicked(){
 		onRefreshButtonClicked();
-		setRights();
 
 		int selectedRow = fileTableWidget->currentRow();
 		if (selectedRow >= 0) {
-			QString fileName = fileTableWidget->item(selectedRow, 0)->text();
+			QString fileName = fileTableWidget->item(selectedRow, 0)->text();			
+			QString directory = QFileDialog::getExistingDirectory(this, "Select Download Folder");
 
-			if(readAccess){
-				QString directory = QFileDialog::getExistingDirectory(this, "Select Download Folder");
-
-				if (!directory.isEmpty()) {
-					QString filePath = directory + "/" + fileName;
-					setButtonLock(true);
-					emit downloadFileRequest(filePath);
-				}
-			} else {
-				QMessageBox::warning(this, "Download", "You don't have right download this file.");
+			if (!directory.isEmpty()) {
+				QString filePath = directory + "/" + fileName;
+				setButtonLock(true);
+				emit downloadFileRequest(filePath, currentLogin);
 			}
 		} else {
 			QMessageBox::warning(this, "Download", "No file selected.");
@@ -204,12 +182,7 @@ namespace SHIZ {
 
 	void MainWidget::onUploadButtonClicked(){
 		onRefreshButtonClicked();
-		setRights();
 
-		if(!writeAccess){
-			QMessageBox::warning(this, "Upload", "You don't have right upload files.");
-			return;
-		}
 		QString filePath = QFileDialog::getOpenFileName(this, "Select a file to upload");
 		if (filePath.isEmpty()) return;
 		QString fileName = QFileInfo(filePath).fileName();

@@ -49,7 +49,6 @@ namespace SHIZ {
 		connect(mainWidget, &MainWidget::downloadFileRequest, networkManager, &NetworkManager::onDownloadFileRequest);
 		connect(mainWidget, &MainWidget::listFileRequest, networkManager, &NetworkManager::onListFileRequest);
 		connect(mainWidget, &MainWidget::uploadFileRequest, networkManager, &NetworkManager::onUploadFileRequest);
-		connect(mainWidget, &MainWidget::userInfoRequest, networkManager, &NetworkManager::onUserInfoRequest);
 		connect(mainWidget, &MainWidget::showLoginWindow, this, &Window::onSwitchToLoginWindow);
 		connect(mainWidget, &MainWidget::userBanned, this, &Window::onSwitchToLoginWindowWithBanned);
 

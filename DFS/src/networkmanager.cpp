@@ -45,12 +45,12 @@ namespace SHIZ {
 		}
 	}
 
-	void NetworkManager::onDeleteFileRequest(const QString& fileName) {
+    void NetworkManager::onDeleteFileRequest(const QString& fileName, const QString& userName) {
 		emit statusMessage("Requesting file deletion...");
 		logger->log("Requesting file deletion...");
 
 		QDataStream out(tcpSocket);
-		out << QString(COMMAND_DELETE) << fileName;
+        out << QString(COMMAND_DELETE) << fileName << userName;
 		tcpSocket->flush();
 
 		if (tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
@@ -58,13 +58,20 @@ namespace SHIZ {
 			QString response;
 			in >> response;
 
+            if(response == RESPONSE_DELETE_NOT_ALLOW){
+			emit deleteFileResult(RESPONSE_DELETE_NOT_ALLOW);
+			emit statusMessage("File deletion is not allowed.");
+			logger->log("File deletion is not allowed.");
+			return;
+            }else{
 			bool success = (response == RESPONSE_DELETE_SUCCESS);
-			emit deleteFileResult(success);
+			emit deleteFileResult(response);
 			emit statusMessage(success ? "File deleted successfully." : "File deletion failed.");
 			logger->log(success ? "File deleted successfully." : "File deletion failed.");
 			return;
+            }
 		} else {
-			emit deleteFileResult(false);
+			emit deleteFileResult(RESPONSE_DELETE_FAILED);
 			emit statusMessage("Server response timed out.");
 			logger->log("Server response timed out.");
 		}
@@ -84,10 +91,10 @@ namespace SHIZ {
 			in >> response;
 
 			bool success = (response == RESPONSE_DELETE_SUCCESS);
-			emit deleteUserResult(success);
+			emit deleteUserResult(false);
 			emit statusMessage(success ? "User deleted successfully." : "User deletion failed.");
 			logger->log(success ? "User deleted successfully." : "User deletion failed.");
-			return;
+
 		} else {
 			emit deleteUserResult(false);
 			emit statusMessage("Server response timed out.");
@@ -103,19 +110,19 @@ namespace SHIZ {
 		logger->log("Disconnected from server and stopped reconnect attempts.");
 	}
 
-	void NetworkManager::onDownloadFileRequest(const QString& filePath) {
+    void NetworkManager::onDownloadFileRequest(const QString& filePath, const QString& userName) {
 		QString fileName = QFileInfo(filePath).fileName();
 		emit statusMessage("Requesting file download: " + fileName);
 		logger->log("Requesting file download: " + fileName);
 
 		QDataStream out(tcpSocket);
-		out << QString(COMMAND_DOWNLOAD) << fileName;
+		out << QString(COMMAND_DOWNLOAD) << fileName << userName;
 		tcpSocket->flush();
 
 		if (!tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT * 10)) {
 			emit statusMessage("Server did not respond in time for download.");
 			logger->log("Server did not respond in time for download.");
-			emit downloadFileResult(false);
+			emit downloadFileResult(RESPONSE_DOWNLOAD_FAILED);
 			return;
 		}
 
@@ -124,10 +131,16 @@ namespace SHIZ {
 		qint64 fileSize = 0;
 
 		in >> response;
+		if (response == RESPONSE_READ_NOT_ALLOW) {
+			emit downloadFileResult(RESPONSE_READ_NOT_ALLOW);
+			emit statusMessage("User is not allowed to download files.");
+			logger->log("User is not allowed to download files.");
+			return;
+		}
 		if (response != RESPONSE_DOWNLOAD_READY) {
 			emit statusMessage("Server not ready for download.");
 			logger->log("Server not ready for download.");
-			emit downloadFileResult(false);
+			emit downloadFileResult(RESPONSE_DOWNLOAD_FAILED);
 			return;
 		}
 
@@ -144,7 +157,7 @@ namespace SHIZ {
 		if (!file.open(QIODevice::WriteOnly)) {
 			emit statusMessage("Failed to open file for writing.");
 			logger->log("Failed to open file for writing.");
-			emit downloadFileResult(false);
+			emit downloadFileResult(RESPONSE_DOWNLOAD_FAILED);
 			return;
 		}
 
@@ -157,7 +170,7 @@ namespace SHIZ {
 				emit statusMessage("No response from server during download.");
 				logger->log("No response from server during download.");
 				file.close();
-				emit downloadFileResult(false);
+				emit downloadFileResult(RESPONSE_DOWNLOAD_FAILED);
 				return;
 			}
 
@@ -179,7 +192,7 @@ namespace SHIZ {
 		file.close();
 		emit statusMessage("Download complete: " + fileName);
 		logger->log("Download complete: " + fileName);
-		emit downloadFileResult(true);
+		emit downloadFileResult(RESPONSE_DOWNLOAD_READY);
 	}
 
 	void NetworkManager::onListFileRequest(const QString& userName) {
@@ -285,7 +298,7 @@ namespace SHIZ {
 		if (!file.open(QIODevice::ReadOnly)) {
 			emit statusMessage("Cannot open file for reading.");
 			logger->log("Cannot open file for reading.");
-			emit uploadFileResult(false);
+			emit uploadFileResult(RESPONSE_UPLOAD_FAILED);
 			return;
 		}
 
@@ -301,7 +314,7 @@ namespace SHIZ {
 		if (!tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT * 10)) {
 			emit statusMessage("Server did not respond in time for upload.");
 			logger->log("Server did not respond in time for upload.");
-			emit uploadFileResult(false);
+			emit uploadFileResult(RESPONSE_UPLOAD_FAILED);
 			return;
 		}
 
@@ -309,10 +322,17 @@ namespace SHIZ {
 		QString response;
 		in >> response;
 
+		if (response == RESPONSE_WRITE_NOT_ALLOW) {
+			emit uploadFileResult(RESPONSE_WRITE_NOT_ALLOW);
+			emit statusMessage("User is not allowed to upload files.");
+			logger->log("User is not allowed to upload files.");
+			return;
+		}
+
 		if (response != RESPONSE_READY_FOR_DATA) {
 			emit statusMessage("Server is not ready for data.");
 			logger->log("Server is not ready for data.");
-			emit uploadFileResult(false);
+			emit uploadFileResult(RESPONSE_UPLOAD_FAILED);
 			return;
 		}
 
@@ -335,7 +355,7 @@ namespace SHIZ {
 			if (!tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT * 10)) {
 				emit statusMessage("No response from server during upload.");
 				logger->log("No response from server after sending chunk.");
-				emit uploadFileResult(false);
+				emit uploadFileResult(RESPONSE_UPLOAD_FAILED);
 				return;
 			}
 
@@ -343,7 +363,7 @@ namespace SHIZ {
 			if (response != RESPONSE_CHUNK_RECEIVED) {
 				emit statusMessage("Server did not acknowledge chunk.");
 				logger->log("Server did not acknowledge chunk.");
-				emit uploadFileResult(false);
+				emit uploadFileResult(RESPONSE_UPLOAD_FAILED);
 				return;
 			}
 		}
@@ -356,34 +376,13 @@ namespace SHIZ {
 			bool success = (response == RESPONSE_UPLOAD_SUCCESS);
 			emit statusMessage(success ? "File uploaded successfully." : "File upload failed.");
 			logger->log(success ? "File uploaded successfully." : "File upload failed.");
-			emit uploadFileResult(success);
+			emit uploadFileResult(response);
 			return;
 		}
 
 		emit statusMessage("No response from server after upload.");
 		logger->log("No response from server after upload.");
-		emit uploadFileResult(false);
-	}
-
-	void NetworkManager::onUserInfoRequest(const QString &userName) {
-		QDataStream out(tcpSocket);
-		out << QString(COMMAND_GET_USER_INFO) << userName;
-		tcpSocket->flush();
-
-		if (tcpSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-			QDataStream in(tcpSocket);
-			QString response;
-			QString userInfo;
-
-			in >> response;
-			if (response == RESPONSE_USER_INFO) {
-				in >> userInfo;
-				emit userInfoResult(userInfo);
-				return;
-			}
-		} else {
-			emit userInfoResult(QString());
-		}
+		emit uploadFileResult(RESPONSE_UPLOAD_FAILED);
 	}
 
 	void NetworkManager::onUserListRequest() {

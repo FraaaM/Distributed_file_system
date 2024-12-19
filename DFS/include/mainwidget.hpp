@@ -15,9 +15,6 @@ namespace SHIZ {
 			NetworkManager* networkManager;
 			QString currentLogin;
 
-			bool writeAccess = false;
-			bool readAccess = false;
-			bool deleteAccess = false;
 			bool buttonLock = false;
 
 			QLabel* statusLabel;
@@ -37,12 +34,9 @@ namespace SHIZ {
 			void setButtonLock(bool buttonLock);
 			void setCurrentLogin(const QString& login);
 
-		private:
-			void setRights();
-
 		signals:
-			void deleteFileRequest(const QString& fileName);
-			void downloadFileRequest(const QString& filePath);
+			void deleteFileRequest(const QString& fileName, const QString& userName);
+			void downloadFileRequest(const QString& filePath, const QString& userName);
 			void listFileRequest(const QString& userName);
 			void showLoginWindow();
 			void uploadFileRequest(const QString& filePath, const QString& userName);
@@ -50,11 +44,10 @@ namespace SHIZ {
 			void userInfoRequest(const QString& userName);
 
 		public slots:
-			void onDeleteFileResult(bool success);
-			void onDownloadFileResult(bool success);
+			void onDeleteFileResult(const QString& result);
+			void onDownloadFileResult(const QString& result);
 			void onListFileResult(const QStringList& files);
-			void onUploadFileResult(bool success);
-			void onUserInfoResult(const QString& userInfo);
+			void onUploadFileResult(const QString& result);
 			void onRefreshButtonClicked();
 
 		private slots:
