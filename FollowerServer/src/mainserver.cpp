@@ -896,13 +896,7 @@ namespace SHIZ {
             QString fileName;
             in >> fileName;
             processGetFileInfoRequest(clientSocket, fileName);
-		}
-		else if(command == COMMAND_GET_USER_INFO){
-            QString userName;
-            in >> userName;
-            processGetUserInfoRequest(clientSocket, userName);
-		}
-		else {
+		}else {
 			logger->log("Unknown command from client: " + command);
 		}
 	}
