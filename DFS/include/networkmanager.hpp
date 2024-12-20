@@ -23,18 +23,33 @@ namespace SHIZ {
 		NetworkManager(Logger* logger, QObject* parent = nullptr);
 		~NetworkManager();
 
-		bool connectToHost(const QString& host, quint16 port);
-		void disconnectFromHost();
-		bool deleteFile(const QString& fileName);
-		bool downloadFile(const QString& filePath);
-		QStringList requestFileList();
-		bool sendLoginRequest(const QString& login, const QString& password);
-		bool sendRegistrationRequest(const QString& login, const QString& password, const QString& confirmPassword);
 		void setHostAndPort(const QString& host, quint16 port);
-		bool uploadFile(const QString& filePath, const QString& owner);
 
 	signals:
+		void connectResult(bool success);
+		void deleteFileResult(const QString& result);
+		void deleteUserResult(bool success);
+		void downloadFileResult(const QString& result);
+		void listFileResult(const QStringList& fileList);
+		void loginResult(const QString& success, const QString& login);
+		void registrationResult(bool success, const QString& message);
 		void statusMessage(const QString& message);
+		void updateUserResult(bool success);
+		void uploadFileResult(const QString& result);
+		void userListResult(const QStringList& users);
+
+	public slots:
+		void onConnectRequest(const QString& host, quint16 port, bool isReconnrection = false);
+		void onDeleteFileRequest(const QString& fileName, const QString& userName);
+		void onDeleteUserRequest(const QString& userName);
+		void onDisconnectRequest();
+		void onDownloadFileRequest(const QString& filePath, const QString& userName);
+		void onListFileRequest(const QString& userName);
+		void onLoginRequest(const QString& login, const QString& password);
+		void onRegistrationRequest(const QString& login, const QString& password);
+		void onUpdateUserRequest(const QString& userName, const QString& key, const QString& value);
+		void onUploadFileRequest(const QString& filePath, const QString& owner);
+		void onUserListRequest();
 
 	private slots:
 		void onConnected();

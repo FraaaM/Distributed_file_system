@@ -1,7 +1,7 @@
 #include <QApplication>
 
 #include "logger.hpp"
-#include "followerwindow.hpp"
+#include "mainwindow.hpp"
 
 int main(int argc, char* argv[]) {
 	QApplication app(argc, argv);
@@ -9,8 +9,8 @@ int main(int argc, char* argv[]) {
 	SHIZ::Logger logger;
 	logger.log("Application started.");
 
-	SHIZ::FollowerWindow followerWindow(&logger);
-	followerWindow.show();
+	SHIZ::MainWindow mainWindow(&logger);
+	mainWindow.show();
 
 	int result = app.exec();
 	logger.log("Application exited.");

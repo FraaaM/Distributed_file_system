@@ -10,6 +10,8 @@ namespace SHIZ{
 		QWidget* centralWidget = new QWidget(this);
 		QVBoxLayout* layout = new QVBoxLayout(centralWidget);
 
+		this->setWindowIcon(QIcon(":images/ReplicaServer.png"));
+
 		portInput = new QLineEdit(this);
 		portInput->setPlaceholderText("Replica Port");
 		portInput->setText("12345");
@@ -17,14 +19,13 @@ namespace SHIZ{
 
 		toggleButton = new QPushButton("Start replica", this);
 		layout->addWidget(toggleButton);
+		connect(toggleButton, &QPushButton::clicked, this, &MainWindow::onToggleServerState);
 
 		statusBar = new QStatusBar(this);
 		setStatusBar(statusBar);
 		statusBar->showMessage("Replica is not running.");
 
 		setCentralWidget(centralWidget);
-
-		connect(toggleButton, &QPushButton::clicked, this, &MainWindow::onToggleServerState);
 	}
 
 	MainWindow::~MainWindow() {

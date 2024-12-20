@@ -12,29 +12,45 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network Sql)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network Sql)
 
-include_directories(include)
+include_directories(
+    include
+    ../utils/include
+)
+
+set(RESOURCE_FILES
+    ../assets/assets.qrc
+)
 
 set(PROJECT_SOURCES
         main.cpp
-        include/logger.hpp src/logger.cpp
         include/mainserver.hpp src/mainserver.cpp
         include/mainwindow.hpp src/mainwindow.cpp
-        include/servermacros.hpp
+
+        ../utils/include/macros.hpp
+        ../utils/include/logger.hpp ../utils/src/logger.cpp
 )
+
+if(WIN32)
+    set(WINDOWS_RESOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../assets/MainServer.rc")
+    list(APPEND PROJECT_SOURCES ${WINDOWS_RESOURCE_FILE})
+endif()
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(MainServer
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+	${RESOURCE_FILES}
     )
 else()
     if(ANDROID)
         add_library(MainServer SHARED
             ${PROJECT_SOURCES}
+            ${RESOURCE_FILES}
         )
     else()
         add_executable(MainServer
             ${PROJECT_SOURCES}
+            ${RESOURCE_FILES}
         )
     endif()
 endif()

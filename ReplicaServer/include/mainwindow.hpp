@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMainWindow>
 #include <QPushButton>
 #include <QStatusBar>
@@ -9,7 +10,7 @@
 #include "logger.hpp"
 #include "replicaserver.hpp"
 
-namespace SHIZ{
+namespace SHIZ {
 	class MainWindow : public QMainWindow {
 		Q_OBJECT
 

@@ -2,7 +2,7 @@
 #include <QDataStream>
 #include <QDir>
 
-#include "replicamacros.hpp"
+#include "macros.hpp"
 #include "replicaserver.hpp"
 
 namespace SHIZ {
@@ -49,7 +49,7 @@ namespace SHIZ {
 		QTcpSocket* newSocket = new QTcpSocket(this);
 		newSocket->setSocketDescriptor(socketDescriptor);
 
-		if (newSocket->waitForReadyRead(3000)) {
+		if (newSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			QDataStream in(newSocket);
 			QString initialMessage;
 			in >> initialMessage;
@@ -97,7 +97,7 @@ namespace SHIZ {
 			qint64 totalReceived = 0;
 
 			while (totalReceived < fileSize) {
-				if (mainServerSocket->waitForReadyRead(3000)) {
+				if (mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 					QByteArray chunk;
 					in >> chunk;
 					fileData.append(chunk);
@@ -156,7 +156,7 @@ namespace SHIZ {
 			out << QString(RESPONSE_DOWNLOAD_READY) << fileData.size();
 			mainServerSocket->flush();
 
-			if (!mainServerSocket->waitForReadyRead(3000)) {
+			if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 				logger->log("Main server not ready to receive file.");
 				return;
 			}
@@ -179,7 +179,7 @@ namespace SHIZ {
 				mainServerSocket->flush();
 				bytesSent += chunk.size();
 
-				if (!mainServerSocket->waitForReadyRead(3000)) {
+				if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 					logger->log("Timeout while sending file to main server.");
 					return;
 				}

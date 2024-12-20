@@ -5,6 +5,7 @@
 #include <QMainWindow>
 #include <QPushButton>
 #include <QStatusBar>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include "logger.hpp"
@@ -16,6 +17,13 @@ namespace SHIZ {
 
 		private:
 			MainServer* server;
+			QTcpSocket* mainServerSocket;
+
+			QLineEdit* mainServerIpInput;
+			QLineEdit* mainServerPortInput;
+			QPushButton* connectToMainButton;
+			QTimer* heartbeatTimer;
+
 			QPushButton* toggleButton;
 			QStatusBar* statusBar;
 			QLineEdit* portInput;
@@ -26,17 +34,26 @@ namespace SHIZ {
 			QPushButton* connectReplicaButton;
 			QPushButton* disconnectReplicaButton;
 
-			Logger* logger;
 			bool serverRunning;
+			bool coonectedToMainServer;
+
+			Logger* logger;
 
 		public:
 			MainWindow(Logger* logger, QWidget *parent = nullptr);
 			~MainWindow();
 
+		private:
+			void setInterfaceEnabled(bool enabled);
+			void transitionToIndependentMode();
+
 		private slots:
+			void onConnectMainServer();
 			void onConnectReplica();
+			void onDisconnectMainServer();
 			void onDisconnectReplica();
 			void onReplicaDisconnected(const QString& replicaAddress);
+			void onSendHeartbeat();
 			void onToggleServerState();
 	};
 }
