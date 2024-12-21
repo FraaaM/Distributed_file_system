@@ -16,7 +16,6 @@ namespace SHIZ {
 			QList<QTcpSocket*> activeFollowers;
 			QVector<QTcpSocket*> replicaSockets;
 			Logger* logger;
-			QTcpSocket* ptrFollowerSocket; //плохое временое решение
 
 		public:
 			MainServer(Logger* logger, QObject *parent = nullptr);
@@ -30,20 +29,14 @@ namespace SHIZ {
 			void incomingConnection(qintptr socketDescriptor) override;
 
 		private:
-			void processFollowerSendReplicaListRequest(QTcpSocket* followerSocket);
-			void processFollowerSendDataBaseRequest(QTcpSocket* followerSocket);
-			void processFollowerReceiveHeartbeatRequest(QTcpSocket* followerSocket);
-			void notificationСhangedReplicaList(QTcpSocket* followerSocket);
-			void notificationСhangedDataBase(QTcpSocket* followerSocket);
-
 			bool distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate);
-            void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& userName);
+			void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& userName);
 			void processDeleteUserRequest(QTcpSocket* clientSocket, const QString& userName);
-            void processDownloadRequest(QTcpSocket* clientSocket, const QString& fileNamet, const QString& userName);
-            void processFileListRequest(QTcpSocket* clientSocket, const QString& userName);
+			void processDownloadRequest(QTcpSocket* clientSocket, const QString& fileNamet, const QString& userName);
+			void processFileListRequest(QTcpSocket* clientSocket, const QString& userName);
 			void processFollowerSyncRequest(QTcpSocket* followerSocket);
 			void processGetFileInfoRequest(QTcpSocket* clientSocket, const QString& fileName);
-            QString processGetUserInfoRequest(const QString& userName);
+			QString processGetUserInfoRequest(const QString& userName);
 			void processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts);
 			void processRegistrationRequest(QTcpSocket* clientSocket, const QStringList& parts);
 			void processReplicaConnection(QTcpSocket* replicaSocket);
