@@ -1,5 +1,7 @@
 #include <QApplication>
 
+#include <QDebug>
+
 #include "macros.hpp"
 #include "mainwindow.hpp"
 
@@ -180,8 +182,11 @@ namespace SHIZ {
 			out << QString(FOLLOWER_SERVER);
 			mainServerSocket->flush();
 
-			if (mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-				connect(mainServerSocket, &QTcpSocket::readyRead, this, &MainWindow::handleMainServerData);}
+			// BUG: if does not work
+			//if (mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
+			connect(mainServerSocket, &QTcpSocket::readyRead, this, &MainWindow::handleMainServerData);
+			//}
+
 			// QDataStream in(mainServerSocket);
 			// QString initialMessage;
 			// in >> initialMessage;
@@ -545,9 +550,11 @@ namespace SHIZ {
 
 	void MainWindow::handleMainServerData(){
 		// QTcpSocket* mainServerSocket = qobject_cast<QTcpSocket*>(sender());
+		qDebug() << "-----IBUSKO----- handleMainServerData";
 		if (!mainServerSocket)
 			logger->log("No mainServerSocket .");
-			return;
+		return;
+
 
 		if (!mainServerSocket->bytesAvailable() == 0) {
 			logger->log("No response from Main Server for heartbeat.");
