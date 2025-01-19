@@ -36,7 +36,6 @@ namespace SHIZ {
 
 			bool serverRunning;
 			bool coonectedToMainServer;
-			bool independentModeIsActive;//
 
 			Logger* logger;
 
@@ -57,11 +56,8 @@ namespace SHIZ {
 			void onDisconnectReplica();
 			void onReplicaDisconnected(const QString& replicaAddress);
 			void onSendHeartbeat();
-
-			void onSendHeartbeatQ();
 			void handleMainServerData();
-			//void handleMainServerDisconnected();//
-
+			//void handleMainServerDisconnected();
 			void onToggleServerState();
 	};
 }

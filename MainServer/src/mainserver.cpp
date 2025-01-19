@@ -511,8 +511,6 @@ namespace SHIZ {
 	}
 
 	void MainServer::processFollowerSendDataBaseRequest(QTcpSocket* followerSocket) {
-		qDebug() << "=================  processFollowerSendDataBaseRequest  ==============";
-
 		logger->log("Processing send database request from follower.");
 
 		QDataStream out(followerSocket);
@@ -570,90 +568,6 @@ namespace SHIZ {
 		logger->log("Database file sent successfully.");
 	}
 
-
-	void MainServer::processFollowerSyncRequest(QTcpSocket* followerSocket) {
-		logger->log("Processing sync request from follower.");
-
-		QDataStream out(followerSocket);
-
-		QVector<QPair<QString, quint16>> replicaListData;
-		for (QTcpSocket* replicaSocket : replicaSockets) {
-			if (replicaSocket && replicaSocket->isOpen()) {
-				QString ip = replicaSocket->peerAddress().toString();
-				quint16 port = replicaSocket->peerPort();
-				replicaListData.append(qMakePair(ip, port));
-			}
-		}
-
-		out << replicaListData;
-		followerSocket->flush();
-		logger->log("Replica list data sent to follower.");
-
-		if (!followerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-			logger->log("No response from follower for replica list.");
-			return;
-		}
-
-		QDataStream in(followerSocket);
-		QString response;
-		in >> response;
-
-		if (response != RESPONSE_REPLICA_LIST_RECEIVED) {
-			logger->log("Follower did not acknowledge replica list.");
-			return;
-		}
-		logger->log("Replica list acknowledged by follower.");
-
-		QString dbFilePath = QApplication::applicationDirPath() + "/" + DATABASE_NAME;
-		QFile dbFile(dbFilePath);
-
-		if (!dbFile.open(QIODevice::ReadOnly)) {
-			logger->log("Cannot open database file for sync: " + dbFilePath);
-			return;
-		}
-
-		qint64 fileSize = dbFile.size();
-		logger->log("Sending database file: " + QString(DATABASE_NAME) + " Size: " + QString::number(fileSize));
-
-		out << QString(COMMAND_FILE_TRANSFER) << fileSize;
-		followerSocket->flush();
-
-		if (!followerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-			logger->log("No response from follower for file transfer.");
-			return;
-		}
-
-		in >> response;
-
-		if (response != RESPONSE_READY_FOR_DATA) {
-			logger->log("Follower not ready for file transfer.");
-			return;
-		}
-
-		const qint64 chunkSize = CHUNK_SIZE;
-		qint64 totalSent = 0;
-
-		while (!dbFile.atEnd()) {
-			QByteArray buffer = dbFile.read(chunkSize);
-			out << buffer;
-			followerSocket->flush();
-			totalSent += buffer.size();
-
-			if (!followerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-				logger->log("No response from follower after sending chunk.");
-				return;
-			}
-
-			in >> response;
-			if (response != RESPONSE_CHUNK_RECEIVED) {
-				logger->log("Follower did not acknowledge chunk.");
-				return;
-			}
-		}
-
-		dbFile.close();
-		logger->log("Database file sent successfully.");
-	}
 
 	void MainServer::processGetFileInfoRequest(QTcpSocket *clientSocket, const QString &fileName){
 		QDataStream out(clientSocket);
@@ -1007,7 +921,6 @@ namespace SHIZ {
 			in >> login >> password;
 			parts << COMMAND_LOGIN << login << password;
 			processLoginRequest(clientSocket, parts);
-			MainServer::notificationСhangedDataBase();
 		}
 		else if (command == COMMAND_REGISTER) {
 			QStringList parts;
@@ -1022,11 +935,13 @@ namespace SHIZ {
 			qint64 fileSize;
 			in >> fileName >> owner >> fileSize;
 			processUploadRequest(clientSocket, fileName, owner, fileSize);
+			MainServer::notificationСhangedDataBase();
 		}
 		else if (command == COMMAND_DELETE) {
             QString fileName, userName;
             in >> fileName >> userName;
             processDeleteFileRequest(clientSocket, fileName, userName);
+			MainServer::notificationСhangedDataBase();
 		}
 		else if(command == COMMAND_DELETE_USER){
             QString userName;
@@ -1060,7 +975,6 @@ namespace SHIZ {
 	}
 
 	void MainServer::handleFollowerData() {
-		qDebug() << "--------------------handleFollowerData()-------------";
 		QTcpSocket* followerSocket = qobject_cast<QTcpSocket*>(sender());
 		if (!followerSocket) return;
 		QDataStream in(followerSocket);

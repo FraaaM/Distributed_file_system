@@ -34,14 +34,12 @@ namespace SHIZ {
 			void processFollowerSendReplicaListRequest(QTcpSocket* followerSocket);
 			void processFollowerSendDataBaseRequest(QTcpSocket* followerSocket);
 			void processFollowerReceiveHeartbeatRequest(QTcpSocket* followerSocket);
-
-
 			bool distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate);
             void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& userName);
 			void processDeleteUserRequest(QTcpSocket* clientSocket, const QString& userName);
             void processDownloadRequest(QTcpSocket* clientSocket, const QString& fileNamet, const QString& userName);
             void processFileListRequest(QTcpSocket* clientSocket, const QString& userName);
-			void processFollowerSyncRequest(QTcpSocket* followerSocket);
+			//void processFollowerSyncRequest(QTcpSocket* followerSocket);
 			void processGetFileInfoRequest(QTcpSocket* clientSocket, const QString& fileName);
             QString processGetUserInfoRequest(const QString& userName);
 			void processLoginRequest(QTcpSocket* clientSocket, const QStringList& parts);

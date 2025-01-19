@@ -11,8 +11,7 @@ namespace SHIZ {
 		server(new MainServer(logger, this)),
 		logger(logger),
 		serverRunning(false),
-		coonectedToMainServer(false),
-		independentModeIsActive(false)
+		coonectedToMainServer(false)
 	{
 		QWidget* centralWidget = new QWidget(this);
 		QVBoxLayout* layout = new QVBoxLayout(centralWidget);
@@ -107,7 +106,6 @@ namespace SHIZ {
 	}
 
 	void MainWindow::transitionToIndependentMode() {
-		independentModeIsActive = true;
 		logger->log("Transitioning to independent mode...");
 
 		heartbeatTimer->stop();
@@ -184,13 +182,9 @@ namespace SHIZ {
 			out << QString(FOLLOWER_SERVER);
 			mainServerSocket->flush();
 
-			// BUG: if does not work
-			//if (mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			connect(mainServerSocket, &QTcpSocket::readyRead, this, &MainWindow::handleMainServerData);
 			//connect(mainServerSocket, &QTcpSocket::disconnected, this, &MainWindow::handleMainServerDisconnected);
-			qDebug() << "----------connect-----------" ;
 			logger->log("New follower connection established.");
-			//}
 
 			heartbeatTimer->start();
 			coonectedToMainServer = true;
@@ -296,8 +290,6 @@ namespace SHIZ {
 		QDataStream in(mainServerSocket);
 		QVector<QPair<QString, quint16>> replicaListData;
 		in >> replicaListData;
-		qDebug() << "------------replicaListData----------- :";
-
 
 		replicaList->clear();
 		for (const auto& pair : replicaListData) {
@@ -306,12 +298,6 @@ namespace SHIZ {
 
 		out << QString(RESPONSE_REPLICA_LIST_RECEIVED);
 		mainServerSocket->flush();
-
-		// if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-		// 	logger->log("No response from Main Server after receiving replicas.");
-		// 	statusBar->showMessage("Heartbeat failed: No response after receiving replicas.");
-		// 	return;
-		// }
 	}
 
 	void MainWindow::processGetDataBase() {
@@ -387,7 +373,6 @@ namespace SHIZ {
 	}
 
 	void MainWindow::onSendHeartbeat() {
-		qDebug() << "---------- onSendHeartbeat ---------------------" ;
 		if (!coonectedToMainServer) {
 			logger->log("Cannot send heartbeat. Not connected to Main Server.");
 			statusBar->showMessage("Heartbeat failed: Not connected to Main Server.");
@@ -399,114 +384,13 @@ namespace SHIZ {
 		mainServerSocket->flush();
 
 		if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-			qDebug() << "---------- onSendHeartbeat if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT))";
 			logger->log("No response from Main Server for heartbeat.");
 			statusBar->showMessage("Heartbeat failed: No response.");
 			transitionToIndependentMode();
 			return;
 		}
-		// QDataStream in(mainServerSocket);
-		// QString command;
-		// in >> command;
-		// if (command != COMMAND_MAIN_HEARTBEAT) {
-		// 	logger->log("Unexpected command: U" + command + "U");
-		// 	return;
-		// }
 	}
 
-	void MainWindow::onSendHeartbeatQ() {
-		if (!coonectedToMainServer) {
-			logger->log("Cannot send heartbeat. Not connected to Main Server.");
-			statusBar->showMessage("Heartbeat failed: Not connected to Main Server.");
-			return;
-		}
-
-		QDataStream out(mainServerSocket);
-		out << QString(COMMAND_FOLLOWER_SYNC);
-		mainServerSocket->flush();
-
-		if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-			logger->log("No response from Main Server for heartbeat11111111111.");
-			statusBar->showMessage("Heartbeat failed: No response.");
-			transitionToIndependentMode();
-			return;
-		}
-
-		QDataStream in(mainServerSocket);
-
-		QVector<QPair<QString, quint16>> replicaListData;
-		in >> replicaListData;
-
-		replicaList->clear();
-		for (const auto& pair : replicaListData) {
-			replicaList->addItem(pair.first + ":" + QString::number(pair.second));
-		}
-
-		out << QString(RESPONSE_REPLICA_LIST_RECEIVED);
-		mainServerSocket->flush();
-
-		if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-			logger->log("No response from Main Server after receiving replicas.");
-			statusBar->showMessage("Heartbeat failed: No response after receiving replicas.");
-			return;
-		}
-
-		QString command;
-		qint64 fileSize;
-		in >> command >> fileSize;
-
-		if (command != COMMAND_FILE_TRANSFER) {
-			logger->log("Unexpected command: U" + command + "U");
-			return;
-		}
-
-		logger->log("Receiving database file: " + QString(DATABASE_NAME) + " Size: " + QString::number(fileSize));
-
-		out << QString(RESPONSE_READY_FOR_DATA);
-		mainServerSocket->flush();
-
-		QString dbFilePath = QApplication::applicationDirPath() + "/" + DATABASE_NAME;
-		QFile dbFile(dbFilePath);
-		if (!dbFile.open(QIODevice::WriteOnly)) {
-			logger->log("Cannot open file for writing: " + dbFilePath);
-			return;
-		}
-
-		const qint64 chunkSize = CHUNK_SIZE;
-		qint64 totalReceived = 0;
-
-		while (totalReceived < fileSize) {
-			if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-				logger->log("No data received from Main Server during file transfer.");
-				dbFile.close();
-				return;
-			}
-
-			QByteArray buffer;
-			in >> buffer;
-			if (buffer.isEmpty()) {
-				logger->log("Received empty chunk.");
-				break;
-			}
-
-			dbFile.write(buffer);
-			totalReceived += buffer.size();
-
-			out << QString(RESPONSE_CHUNK_RECEIVED);
-			mainServerSocket->flush();
-		}
-
-		dbFile.close();
-
-		if (totalReceived == fileSize) {
-			logger->log("Database file received and saved successfully: " + dbFilePath);
-		} else {
-			logger->log("Database file transfer incomplete.");
-		}
-
-		logger->log("Heartbeat succeed.");
-		statusBar->showMessage("Heartbeat succeed.");
-	}
 
 	void MainWindow::onToggleServerState() {
 		if (serverRunning) {
@@ -546,14 +430,6 @@ namespace SHIZ {
 			return;
 		}
 
-		// if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-		// 	qDebug() << "-------MAX-------- !mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT*5 ";
-		// 	logger->log("No response from Main Server for heartbeat.");
-		// 	statusBar->showMessage("Heartbeat failed: No response.");
-		// 	transitionToIndependentMode();
-		// 	return;
-		// }
-
 		QDataStream in(mainServerSocket);
 		QString command;
 		in >> command;
@@ -576,6 +452,4 @@ namespace SHIZ {
 			logger->log("Unknown command from follower: " + command);
 		}
 	}
-
-
 }
