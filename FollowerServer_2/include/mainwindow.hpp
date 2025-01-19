@@ -36,6 +36,7 @@ namespace SHIZ {
 
 			bool serverRunning;
 			bool coonectedToMainServer;
+			bool independentModeIsActive;//
 
 			Logger* logger;
 
@@ -59,6 +60,7 @@ namespace SHIZ {
 
 			void onSendHeartbeatQ();
 			void handleMainServerData();
+			//void handleMainServerDisconnected();//
 
 			void onToggleServerState();
 	};

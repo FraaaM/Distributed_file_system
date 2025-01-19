@@ -16,7 +16,7 @@ namespace SHIZ {
 			QList<QTcpSocket*> activeFollowers;
 			QVector<QTcpSocket*> replicaSockets;
 			Logger* logger;
-			QTcpSocket* ptrFollowerSocket; //плохое временое решение
+			QTcpSocket* ptrFollowerSocket;
 
 		public:
 			MainServer(Logger* logger, QObject *parent = nullptr);
@@ -25,7 +25,8 @@ namespace SHIZ {
 			void closeServer();
 			bool connectToReplica(const QString& host, quint16 port);
 			void disconnectFromReplica(const QString& host, quint16 port);
-
+			void notificationСhangedDataBase();
+			void notificationСhangedReplicaList();
 		protected:
 			void incomingConnection(qintptr socketDescriptor) override;
 
@@ -33,8 +34,7 @@ namespace SHIZ {
 			void processFollowerSendReplicaListRequest(QTcpSocket* followerSocket);
 			void processFollowerSendDataBaseRequest(QTcpSocket* followerSocket);
 			void processFollowerReceiveHeartbeatRequest(QTcpSocket* followerSocket);
-			void notificationСhangedReplicaList(QTcpSocket* followerSocket);
-			void notificationСhangedDataBase(QTcpSocket* followerSocket);
+
 
 			bool distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate);
             void processDeleteFileRequest(QTcpSocket* clientSocket, const QString& fileName, const QString& userName);

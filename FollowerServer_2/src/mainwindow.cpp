@@ -11,7 +11,8 @@ namespace SHIZ {
 		server(new MainServer(logger, this)),
 		logger(logger),
 		serverRunning(false),
-		coonectedToMainServer(false)
+		coonectedToMainServer(false),
+		independentModeIsActive(false)
 	{
 		QWidget* centralWidget = new QWidget(this);
 		QVBoxLayout* layout = new QVBoxLayout(centralWidget);
@@ -106,6 +107,7 @@ namespace SHIZ {
 	}
 
 	void MainWindow::transitionToIndependentMode() {
+		independentModeIsActive = true;
 		logger->log("Transitioning to independent mode...");
 
 		heartbeatTimer->stop();
@@ -185,16 +187,10 @@ namespace SHIZ {
 			// BUG: if does not work
 			//if (mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			connect(mainServerSocket, &QTcpSocket::readyRead, this, &MainWindow::handleMainServerData);
+			//connect(mainServerSocket, &QTcpSocket::disconnected, this, &MainWindow::handleMainServerDisconnected);
+			qDebug() << "----------connect-----------" ;
+			logger->log("New follower connection established.");
 			//}
-
-			// QDataStream in(mainServerSocket);
-			// QString initialMessage;
-			// in >> initialMessage;
-
-			// if (initialMessage == FOLLOWER_SERVER) {
-			// 	connect(mainServerSocket, &QTcpSocket::readyRead, this, &MainWindow::handleMainServerData);
-			// 	//connect(mainServerSocket, &QTcpSocket::disconnected, this, &MainWindow::handleFollowerDisconnected);
-			// 	logger->log("New follower connection established.");
 
 			heartbeatTimer->start();
 			coonectedToMainServer = true;
@@ -300,6 +296,8 @@ namespace SHIZ {
 		QDataStream in(mainServerSocket);
 		QVector<QPair<QString, quint16>> replicaListData;
 		in >> replicaListData;
+		qDebug() << "------------replicaListData----------- :";
+
 
 		replicaList->clear();
 		for (const auto& pair : replicaListData) {
@@ -309,16 +307,14 @@ namespace SHIZ {
 		out << QString(RESPONSE_REPLICA_LIST_RECEIVED);
 		mainServerSocket->flush();
 
-		if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-			logger->log("No response from Main Server after receiving replicas.");
-			statusBar->showMessage("Heartbeat failed: No response after receiving replicas.");
-			return;
-		}
-
+		// if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
+		// 	logger->log("No response from Main Server after receiving replicas.");
+		// 	statusBar->showMessage("Heartbeat failed: No response after receiving replicas.");
+		// 	return;
+		// }
 	}
 
 	void MainWindow::processGetDataBase() {
-		//onSendHeartbeatQ();
 		if (!coonectedToMainServer) {
 			logger->log("Cannot send heartbeat. Not connected to Main Server.");
 			statusBar->showMessage("Heartbeat failed: Not connected to Main Server.");
@@ -388,13 +384,10 @@ namespace SHIZ {
 		} else {
 			logger->log("Database file transfer incomplete.");
 		}
-
-		logger->log("Heartbeat succeed.");
-		statusBar->showMessage("Heartbeat succeed.");
-
 	}
 
 	void MainWindow::onSendHeartbeat() {
+		qDebug() << "---------- onSendHeartbeat ---------------------" ;
 		if (!coonectedToMainServer) {
 			logger->log("Cannot send heartbeat. Not connected to Main Server.");
 			statusBar->showMessage("Heartbeat failed: Not connected to Main Server.");
@@ -405,17 +398,16 @@ namespace SHIZ {
 		out << QString(COMMAND_MAIN_HEARTBEAT);
 		mainServerSocket->flush();
 
-		// if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-		// 	logger->log("No response from Main Server for heartbeat.");
-		// 	statusBar->showMessage("Heartbeat failed: No response.");
-		// 	transitionToIndependentMode();
-		// 	return;
-		// }
-
+		if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
+			qDebug() << "---------- onSendHeartbeat if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT))";
+			logger->log("No response from Main Server for heartbeat.");
+			statusBar->showMessage("Heartbeat failed: No response.");
+			transitionToIndependentMode();
+			return;
+		}
 		// QDataStream in(mainServerSocket);
 		// QString command;
 		// in >> command;
-
 		// if (command != COMMAND_MAIN_HEARTBEAT) {
 		// 	logger->log("Unexpected command: U" + command + "U");
 		// 	return;
@@ -549,19 +541,18 @@ namespace SHIZ {
 	}
 
 	void MainWindow::handleMainServerData(){
-		// QTcpSocket* mainServerSocket = qobject_cast<QTcpSocket*>(sender());
-		qDebug() << "-----IBUSKO----- handleMainServerData";
-		if (!mainServerSocket)
+		if (!mainServerSocket) {
 			logger->log("No mainServerSocket .");
-		return;
-
-
-		if (!mainServerSocket->bytesAvailable() == 0) {
-			logger->log("No response from Main Server for heartbeat.");
-			statusBar->showMessage("Heartbeat failed: No response.");
-			transitionToIndependentMode();
 			return;
 		}
+
+		// if (!mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
+		// 	qDebug() << "-------MAX-------- !mainServerSocket->waitForReadyRead(RESPONSE_TIMEOUT*5 ";
+		// 	logger->log("No response from Main Server for heartbeat.");
+		// 	statusBar->showMessage("Heartbeat failed: No response.");
+		// 	transitionToIndependentMode();
+		// 	return;
+		// }
 
 		QDataStream in(mainServerSocket);
 		QString command;
@@ -569,14 +560,8 @@ namespace SHIZ {
 
 		logger->log("Received command from MainServer: " + command);
 
-		// if (command != COMMAND_MAIN_HEARTBEAT) {
-		// 	logger->log("Unexpected command: U" + command + "U");
-		// 	return;
-		// }
-
 		if (command == COMMAND_MAIN_HEARTBEAT) {
-			//processFollowerReceiveHeartbeatRequest(mainServerSocket);
-			logger->log("command heartbeat to Follower");
+			logger->log("command heartbeat to Follower from Main");
 		}
 
 		else if (command == COMMAND_SEND_REPLICA_LIST) {

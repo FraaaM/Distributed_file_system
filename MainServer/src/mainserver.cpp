@@ -83,6 +83,15 @@ namespace SHIZ {
 		}
 		activeClients.clear();
 
+		for (QTcpSocket* replica : replicaSockets) {
+			replica->disconnectFromHost();
+			if (replica->state() != QAbstractSocket::UnconnectedState) {
+				replica->waitForDisconnected();
+			}
+			replica->deleteLater();
+		}
+		replicaSockets.clear();
+
 		for (QTcpSocket* follower : activeFollowers) {
 			follower->disconnectFromHost();
 			if (follower->state() != QAbstractSocket::UnconnectedState) {
@@ -133,32 +142,36 @@ namespace SHIZ {
 		logger->log("No active replica connection found at " + host + ":" + QString::number(port));
 	}
 
-
 	void MainServer::incomingConnection(qintptr socketDescriptor) {
 		QTcpSocket* newSocket = new QTcpSocket(this);
-		newSocket->setSocketDescriptor(socketDescriptor);
+
+		if (!newSocket->setSocketDescriptor(socketDescriptor)) {
+			logger->log("Failed to set socket descriptor for new connection: " + newSocket->errorString());
+			newSocket->deleteLater();
+			return;
+		}
 
 		if (newSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
 			QDataStream in(newSocket);
 			QString initialMessage;
 			in >> initialMessage;
-		MainServer::ptrFollowerSocket = newSocket;// временное решение
+
 			if (initialMessage == CLIENT) {
 				activeClients.append(newSocket);
 				connect(newSocket, &QTcpSocket::readyRead, this, &MainServer::handleClientData);
 				connect(newSocket, &QTcpSocket::disconnected, this, &MainServer::handleClientDisconnected);
 				logger->log("New client connection established.");
-				return;
 			} else if (initialMessage == FOLLOWER_SERVER) {
+				MainServer::ptrFollowerSocket = newSocket;
 				activeFollowers.append(newSocket);
 				connect(newSocket, &QTcpSocket::readyRead, this, &MainServer::handleFollowerData);
 				connect(newSocket, &QTcpSocket::disconnected, this, &MainServer::handleFollowerDisconnected);
 				logger->log("New follower connection established.");
+				MainServer::notificationСhangedDataBase();
 			} else {
 				logger->log("Unknown connection type. Closing socket.");
 				newSocket->close();
 				newSocket->deleteLater();
-				return;
 			}
 		} else {
 			logger->log("No data received to identify connection type. Closing socket.");
@@ -166,7 +179,6 @@ namespace SHIZ {
 			newSocket->deleteLater();
 		}
 	}
-
 
 	bool MainServer::distributeFileToReplicas(const QString& fileName, const QByteArray& fileData, const QString& uploadDate) {
 		bool atLeastOneSuccess = false;
@@ -499,6 +511,8 @@ namespace SHIZ {
 	}
 
 	void MainServer::processFollowerSendDataBaseRequest(QTcpSocket* followerSocket) {
+		qDebug() << "=================  processFollowerSendDataBaseRequest  ==============";
+
 		logger->log("Processing send database request from follower.");
 
 		QDataStream out(followerSocket);
@@ -956,11 +970,14 @@ namespace SHIZ {
 		return true;
 	}
 
-	void MainServer::notificationСhangedDataBase(QTcpSocket* followerSocket) {
-
-		QDataStream out(followerSocket);
+	void MainServer::notificationСhangedDataBase() {
+		if (!ptrFollowerSocket) {
+			logger->log("No ptrFollowerSocket.");
+			return;
+		}
+		QDataStream out(ptrFollowerSocket);
 		out << QString(COMMAND_SEND_DATABASE);
-		followerSocket->flush();
+		ptrFollowerSocket->flush();
 	}
 
 	void MainServer::handleClientData() {
@@ -990,6 +1007,7 @@ namespace SHIZ {
 			in >> login >> password;
 			parts << COMMAND_LOGIN << login << password;
 			processLoginRequest(clientSocket, parts);
+			MainServer::notificationСhangedDataBase();
 		}
 		else if (command == COMMAND_REGISTER) {
 			QStringList parts;
@@ -997,6 +1015,7 @@ namespace SHIZ {
 			in >> login >> password;
 			parts << COMMAND_REGISTER << login << password;
 			processRegistrationRequest(clientSocket, parts);
+			MainServer::notificationСhangedDataBase();
 		}
 		else if (command == COMMAND_UPLOAD) {
 			QString fileName, owner;
@@ -1013,11 +1032,13 @@ namespace SHIZ {
             QString userName;
             in >> userName;
             processDeleteUserRequest(clientSocket, userName);
+			MainServer::notificationСhangedDataBase();
 		}
 		else if(command == COMMAND_UPDATE_USER){
             QString userName, key, value;
             in >> userName >> key >> value;
             processUpdateUserRequest(clientSocket, userName, key, value);
+			MainServer::notificationСhangedDataBase();
 		}
 		else if(command == COMMAND_GET_FILE_INFO){
             QString fileName;
@@ -1027,7 +1048,6 @@ namespace SHIZ {
 		else {
 			logger->log("Unknown command from client: " + command);
 		}
-		MainServer::notificationСhangedDataBase(ptrFollowerSocket);
 	}
 
 	void MainServer::handleClientDisconnected() {
@@ -1040,10 +1060,9 @@ namespace SHIZ {
 	}
 
 	void MainServer::handleFollowerData() {
+		qDebug() << "--------------------handleFollowerData()-------------";
 		QTcpSocket* followerSocket = qobject_cast<QTcpSocket*>(sender());
 		if (!followerSocket) return;
-
-		//MainServer::ptrFollowerSocket = followerSocket;// временное решение
 		QDataStream in(followerSocket);
 		QString command;
 		in >> command;
@@ -1076,24 +1095,19 @@ namespace SHIZ {
 		}
 	}
 
-	void MainServer::notificationСhangedReplicaList(QTcpSocket* followerSocket) {
+	void MainServer::notificationСhangedReplicaList() {
+		if (!ptrFollowerSocket) {
+			logger->log("No ptrFollowerSocket.");
+			return;
+		}
 
-		QDataStream out(followerSocket);
+		QDataStream out(ptrFollowerSocket);
 		out << QString(COMMAND_SEND_REPLICA_LIST);
-		followerSocket->flush();
-
-		// if (!followerSocket->waitForReadyRead(RESPONSE_TIMEOUT)) {
-		// 	logger->log("No response from Follower Server after receiving command to send replica list.");
-		// 	statusBar->showMessage("Heartbeat failed: No response after command to send replica list.");
-		// 	return;
-		// }
+		ptrFollowerSocket->flush();
 	}
 
 	void MainServer::onReplicaConnected() {
 		logger->log("Replica connection established.");
-		emit statusMessage("Replica connected.");
-
-		MainServer::notificationСhangedReplicaList(ptrFollowerSocket);
 	}
 
 	void MainServer::onReplicaDisconnected() {
@@ -1105,8 +1119,6 @@ namespace SHIZ {
 			replicaSocket->deleteLater();
 			emit replicaDisconnected(replicaAddress);
 			emit statusMessage("Replica disconnected.");
-
-			MainServer::notificationСhangedReplicaList(ptrFollowerSocket);
 		}
 	}
 }

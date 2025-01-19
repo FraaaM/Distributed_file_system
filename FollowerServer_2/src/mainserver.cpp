@@ -83,6 +83,15 @@ namespace SHIZ {
 		}
 		activeClients.clear();
 
+		for (QTcpSocket* replica : replicaSockets) {
+			replica->disconnectFromHost();
+			if (replica->state() != QAbstractSocket::UnconnectedState) {
+				replica->waitForDisconnected();
+			}
+			replica->deleteLater();
+		}
+		replicaSockets.clear();
+
 		for (QTcpSocket* follower : activeFollowers) {
 			follower->disconnectFromHost();
 			if (follower->state() != QAbstractSocket::UnconnectedState) {

@@ -77,6 +77,7 @@ namespace SHIZ {
 		} else {
 			statusBar->showMessage("Failed to connect to replica.");
 		}
+		server->notificationСhangedReplicaList();
 	}
 
 	void MainWindow::onDisconnectReplica() {
@@ -109,6 +110,7 @@ namespace SHIZ {
 		server->disconnectFromReplica(host, port);
 		delete selectedItem;
 		statusBar->showMessage("Replica disconnected: " + host + ":" + QString::number(port));
+		server->notificationСhangedReplicaList();
 	}
 
 	void MainWindow::onReplicaDisconnected(const QString& replicaAddress) {
@@ -118,6 +120,7 @@ namespace SHIZ {
 		}
 		statusBar->showMessage("Replica disconnected: " + replicaAddress);
 		logger->log("Replica removed from list: " + replicaAddress);
+		server->notificationСhangedReplicaList();
 	}
 
 	void MainWindow::onToggleServerState() {
